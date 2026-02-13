@@ -574,6 +574,18 @@ function onEnemyKill(enemy: Enemy) {
   if (enemy.isBoss) {
     const loreId = `guardian_${enemy.element === 'fire' ? 'ignis' : enemy.element === 'ice' ? 'glacius' : enemy.element === 'lightning' ? 'voltaris' : 'umbra'}`;
     onLoreFound?.(loreId);
+    // Unlock the boss's element
+    if (!player.unlockedElements.includes(enemy.element)) {
+      player.unlockedElements.push(enemy.element);
+      onStateChange?.();
+    }
+    // Unlock next zone
+    const zoneOrder: ElementType[] = ['fire', 'ice', 'lightning', 'shadow'];
+    const nextIdx = zoneOrder.indexOf(enemy.element) + 1;
+    if (nextIdx < zoneOrder.length && !player.unlockedElements.includes(zoneOrder[nextIdx])) {
+      player.unlockedElements.push(zoneOrder[nextIdx]);
+      onStateChange?.();
+    }
   }
 }
 
@@ -790,4 +802,20 @@ export function respawnPlayer() {
   floor = Math.max(1, floor - 1);
   bossDialogueShown = false;
   loadRoom(player.element, floor);
+}
+
+export function switchElement(element: ElementType) {
+  if (!player.unlockedElements.includes(element)) return;
+  player.element = element;
+  floor = 1;
+  bossDialogueShown = false;
+  loadRoom(element, floor);
+  onStateChange?.();
+}
+
+export function unlockSkill(skillId: string) {
+  if (!player.skills.includes(skillId)) {
+    player.skills.push(skillId);
+    onStateChange?.();
+  }
 }

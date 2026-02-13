@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, LoreEntry } from '../game/types';
-import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom } from '../game/engine';
+import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, unlockSkill } from '../game/engine';
 import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/saveSystem';
 import TitleScreen from './TitleScreen';
 import GameHUD from './GameHUD';
@@ -9,6 +9,7 @@ import StatAllocation from './StatAllocation';
 import BossDialogue from './BossDialogue';
 import DeathScreen from './DeathScreen';
 import PauseMenu from './PauseMenu';
+import SkillTree from './SkillTree';
 
 type GamePhase = 'title' | 'playing' | 'paused';
 
@@ -19,6 +20,7 @@ export default function GameCanvas() {
   const [phase, setPhase] = useState<GamePhase>('title');
   const [, forceUpdate] = useState(0);
   const [showLore, setShowLore] = useState(false);
+  const [showSkills, setShowSkills] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [bossZone, setBossZone] = useState<ElementType | null>(null);
   const [showDeath, setShowDeath] = useState(false);
@@ -84,7 +86,7 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      if (!showLore && !showStats && !bossZone && !showDeath) {
+      if (!showLore && !showStats && !showSkills && !bossZone && !showDeath) {
         update(dt);
       }
 
@@ -102,13 +104,14 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, bossZone, showDeath]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath]);
 
   // ESC key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (showLore) setShowLore(false);
+        else if (showSkills) setShowSkills(false);
         else if (showStats) setShowStats(false);
         else if (phase === 'playing') setPhase('paused');
         else if (phase === 'paused') setPhase('playing');
@@ -116,7 +119,7 @@ export default function GameCanvas() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [phase, showLore, showStats]);
+  }, [phase, showLore, showStats, showSkills]);
 
   const handleSave = useCallback(() => {
     const data = getSaveData();
@@ -151,6 +154,7 @@ export default function GameCanvas() {
             zone={player.element}
             onOpenLore={() => setShowLore(true)}
             onOpenStats={() => setShowStats(true)}
+            onOpenSkills={() => setShowSkills(true)}
             onPause={() => setPhase('paused')}
           />
         )}
@@ -165,6 +169,7 @@ export default function GameCanvas() {
       </div>
 
       {showLore && <LoreCodex entries={loreEntries} onClose={() => setShowLore(false)} />}
+      {showSkills && player && <SkillTree player={player} onClose={() => setShowSkills(false)} />}
       {showStats && player && <StatAllocation player={player} onClose={() => setShowStats(false)} />}
       {bossZone && <BossDialogue zone={bossZone} onComplete={() => setBossZone(null)} />}
       {showDeath && (
