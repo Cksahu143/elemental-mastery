@@ -1,0 +1,121 @@
+import { PlayerState, ElementType, ELEMENT_COLORS, ZONE_NAMES } from '../game/types';
+
+interface GameHUDProps {
+  player: PlayerState;
+  floor: number;
+  zone: ElementType;
+  onOpenLore: () => void;
+  onOpenStats: () => void;
+  onPause: () => void;
+}
+
+export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, onPause }: GameHUDProps) {
+  const hpPct = Math.max(0, (player.hp / player.maxHp) * 100);
+  const manaPct = Math.max(0, (player.mana / player.maxMana) * 100);
+  const xpPct = (player.xp / player.xpToNext) * 100;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none">
+      {/* Top-left: HP & Mana */}
+      <div className="absolute top-4 left-4 pointer-events-auto">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-ui font-bold text-destructive w-8">HP</span>
+          <div className="w-48 h-4 bg-muted/50 border border-border overflow-hidden">
+            <div
+              className="h-full transition-all duration-300"
+              style={{
+                width: `${hpPct}%`,
+                background: `linear-gradient(90deg, #991b1b, #dc2626)`,
+                boxShadow: hpPct < 30 ? '0 0 10px rgba(220,38,38,0.5)' : 'none',
+              }}
+            />
+          </div>
+          <span className="text-xs font-ui text-foreground">{Math.floor(player.hp)}/{player.maxHp}</span>
+        </div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-ui font-bold text-secondary w-8">MP</span>
+          <div className="w-48 h-3 bg-muted/50 border border-border overflow-hidden">
+            <div
+              className="h-full transition-all duration-300"
+              style={{
+                width: `${manaPct}%`,
+                background: `linear-gradient(90deg, #1e40af, #3b82f6)`,
+              }}
+            />
+          </div>
+          <span className="text-xs font-ui text-foreground">{Math.floor(player.mana)}/{player.maxMana}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-ui font-bold text-accent w-8">XP</span>
+          <div className="w-48 h-2 bg-muted/50 border border-border overflow-hidden">
+            <div
+              className="h-full transition-all duration-200"
+              style={{
+                width: `${xpPct}%`,
+                background: `linear-gradient(90deg, #a16207, #eab308)`,
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Top-center: Zone & Floor */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 text-center pointer-events-auto">
+        <p className="text-xs font-ui tracking-widest uppercase text-muted-foreground">
+          {ZONE_NAMES[zone]}
+        </p>
+        <p className="text-sm font-display" style={{ color: ELEMENT_COLORS[zone] }}>
+          Floor {floor}
+        </p>
+      </div>
+
+      {/* Top-right: Level & Buttons */}
+      <div className="absolute top-4 right-4 flex items-center gap-3 pointer-events-auto">
+        <div className="text-right mr-2">
+          <p className="text-xs font-ui text-muted-foreground">Level</p>
+          <p className="text-2xl font-display font-bold text-primary leading-none">{player.level}</p>
+        </div>
+        {player.statPoints > 0 && (
+          <button
+            onClick={onOpenStats}
+            className="px-3 py-1 text-xs font-ui font-bold uppercase tracking-wider border border-accent text-accent hover:bg-accent/10 transition-colors animate-pulse-glow"
+          >
+            +{player.statPoints} Pts
+          </button>
+        )}
+        <button
+          onClick={onOpenLore}
+          className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+        >
+          Lore
+        </button>
+        <button
+          onClick={onPause}
+          className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+        >
+          Menu
+        </button>
+      </div>
+
+      {/* Bottom: Dash cooldown */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <div
+              className="w-12 h-12 border-2 flex items-center justify-center text-lg font-ui font-bold transition-colors"
+              style={{
+                borderColor: player.dashCooldown > 0 ? 'hsl(var(--muted-foreground))' : ELEMENT_COLORS[player.element],
+                color: player.dashCooldown > 0 ? 'hsl(var(--muted-foreground))' : ELEMENT_COLORS[player.element],
+                opacity: player.dashCooldown > 0 ? 0.4 : 1,
+                boxShadow: player.dashCooldown <= 0 ? `0 0 10px ${ELEMENT_COLORS[player.element]}40` : 'none',
+              }}
+            >
+              ⚡
+            </div>
+            <span className="text-[10px] font-ui text-muted-foreground mt-1 block">DASH</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
