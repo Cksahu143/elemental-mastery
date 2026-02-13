@@ -1,4 +1,5 @@
 import { PlayerState, ElementType, ELEMENT_COLORS, ZONE_NAMES } from '../game/types';
+import { switchElement } from '../game/engine';
 
 interface GameHUDProps {
   player: PlayerState;
@@ -6,10 +7,11 @@ interface GameHUDProps {
   zone: ElementType;
   onOpenLore: () => void;
   onOpenStats: () => void;
+  onOpenSkills: () => void;
   onPause: () => void;
 }
 
-export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, onPause }: GameHUDProps) {
+export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, onOpenSkills, onPause }: GameHUDProps) {
   const hpPct = Math.max(0, (player.hp / player.maxHp) * 100);
   const manaPct = Math.max(0, (player.mana / player.maxMana) * 100);
   const xpPct = (player.xp / player.xpToNext) * 100;
@@ -84,6 +86,12 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
           </button>
         )}
         <button
+          onClick={onOpenSkills}
+          className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+        >
+          Skills
+        </button>
+        <button
           onClick={onOpenLore}
           className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
         >
@@ -97,7 +105,32 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
         </button>
       </div>
 
-      {/* Bottom: Dash cooldown */}
+      {/* Bottom-left: Element switcher */}
+      {player.unlockedElements.length > 1 && (
+        <div className="absolute bottom-4 left-4 pointer-events-auto">
+          <p className="text-[10px] font-ui text-muted-foreground mb-1 uppercase tracking-wider">Element</p>
+          <div className="flex gap-2">
+            {player.unlockedElements.map(el => (
+              <button
+                key={el}
+                onClick={() => switchElement(el)}
+                className="w-10 h-10 border-2 flex items-center justify-center text-sm font-ui font-bold transition-all"
+                style={{
+                  borderColor: player.element === el ? ELEMENT_COLORS[el] : 'hsl(var(--border))',
+                  color: ELEMENT_COLORS[el],
+                  backgroundColor: player.element === el ? `${ELEMENT_COLORS[el]}20` : 'transparent',
+                  boxShadow: player.element === el ? `0 0 10px ${ELEMENT_COLORS[el]}40` : 'none',
+                }}
+                title={`Switch to ${el}`}
+              >
+                {el === 'fire' ? '🔥' : el === 'ice' ? '❄' : el === 'lightning' ? '⚡' : '🌑'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom-center: Dash cooldown */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
         <div className="flex items-center gap-4">
           <div className="text-center">
