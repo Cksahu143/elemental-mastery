@@ -2,6 +2,8 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, LoreEntry, SKILLS } from '../game/types';
 import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, unlockSkill, getActiveSkills } from '../game/engine';
 import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/saveSystem';
+import { POST_BOSS_DIALOGUES } from '../game/lore';
+import { SFX } from '../game/audio';
 import TitleScreen from './TitleScreen';
 import GameHUD from './GameHUD';
 import LoreCodex from './LoreCodex';
@@ -12,6 +14,7 @@ import PauseMenu from './PauseMenu';
 import SkillTree from './SkillTree';
 import Tutorial from './Tutorial';
 import NPCDialogue from './NPCDialogue';
+import StoryCutscene from './StoryCutscene';
 
 type GamePhase = 'title' | 'playing' | 'paused';
 
@@ -39,6 +42,7 @@ export default function GameCanvas() {
   const [notification, setNotification] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNPCDialogue, setShowNPCDialogue] = useState(false);
+  const [bossCutsceneZone, setBossCutsceneZone] = useState<ElementType | null>(null);
 
   const hasSave = loadGame() !== null;
 
@@ -76,6 +80,7 @@ export default function GameCanvas() {
         setLoreUnlocked(prev => {
           if (prev.includes(id)) return prev;
           showNotif('Lore fragment discovered!');
+          SFX.loreFound();
           return [...prev, id];
         });
       },
@@ -84,6 +89,7 @@ export default function GameCanvas() {
         setShowStats(true);
       },
       onRoomCleared: () => showNotif('Room Cleared!'),
+      onBossDefeated: (zone) => setBossCutsceneZone(zone),
     });
   }, [showNotif]);
 
@@ -102,7 +108,7 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      if (!showLore && !showStats && !showSkills && !bossZone && !showDeath && !showTutorial && !showNPCDialogue) {
+      if (!showLore && !showStats && !showSkills && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone) {
         update(dt);
       }
 
@@ -120,7 +126,7 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone]);
 
   // ESC key
   useEffect(() => {
@@ -195,6 +201,13 @@ export default function GameCanvas() {
         />
       )}
       {showTutorial && <Tutorial onComplete={() => setShowTutorial(false)} />}
+      {bossCutsceneZone && (
+        <StoryCutscene
+          title={`${bossCutsceneZone === 'fire' ? 'Ignis' : bossCutsceneZone === 'ice' ? 'Glacius' : bossCutsceneZone === 'lightning' ? 'Voltaris' : 'Umbra'} Defeated`}
+          lines={POST_BOSS_DIALOGUES[bossCutsceneZone] || []}
+          onComplete={() => setBossCutsceneZone(null)}
+        />
+      )}
       {showDeath && (
         <DeathScreen
           onRespawn={() => { respawnPlayer(); setShowDeath(false); }}
