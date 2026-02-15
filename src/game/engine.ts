@@ -5,6 +5,7 @@ import {
 } from './types';
 import { generateRoom, getTileColor } from './dungeon';
 import { SaveData } from './types';
+import { SFX, startAmbientMusic } from './audio';
 
 // ─── Input tracking ───
 const keys: Record<string, boolean> = {};
@@ -41,6 +42,7 @@ let onBossEncounter: ((zone: ElementType) => void) | null = null;
 let onLoreFound: ((id: string) => void) | null = null;
 let onLevelUp: (() => void) | null = null;
 let onRoomCleared: (() => void) | null = null;
+let onBossDefeated: ((zone: ElementType) => void) | null = null;
 let bossDialogueShown = false;
 
 export function setCallbacks(cbs: {
@@ -49,12 +51,14 @@ export function setCallbacks(cbs: {
   onLoreFound?: (id: string) => void;
   onLevelUp?: () => void;
   onRoomCleared?: () => void;
+  onBossDefeated?: (zone: ElementType) => void;
 }) {
   onStateChange = cbs.onStateChange || null;
   onBossEncounter = cbs.onBossEncounter || null;
   onLoreFound = cbs.onLoreFound || null;
   onLevelUp = cbs.onLevelUp || null;
   onRoomCleared = cbs.onRoomCleared || null;
+  onBossDefeated = cbs.onBossDefeated || null;
 }
 
 export function getPlayer(): PlayerState { return player; }
@@ -87,6 +91,7 @@ export function initGame(save: SaveData) {
   floor = save.currentFloor;
   bossDialogueShown = false;
   loadRoom(save.currentZone, floor);
+  startAmbientMusic(save.currentZone);
 }
 
 function loadRoom(zone: ElementType, fl: number) {
@@ -101,6 +106,7 @@ function loadRoom(zone: ElementType, fl: number) {
   
   if (isBoss && !bossDialogueShown) {
     bossDialogueShown = true;
+    SFX.bossRoar();
     onBossEncounter?.(zone);
   }
 }
@@ -174,6 +180,7 @@ export function update(dt: number) {
     player.dashTimer = 0.15;
     player.dashCooldown = 1;
     player.invincible = 0.2;
+    SFX.dash();
     // Dash particles
     for (let i = 0; i < 8; i++) {
       particles.push({
@@ -225,6 +232,7 @@ export function update(dt: number) {
       keys[`${si + 1}`] = false; // consume key press
       player.mana -= sk.manaCost;
       player.attackCooldown = 0.5;
+      SFX.skill();
       fireSkill(sk.id);
     }
   }
@@ -233,6 +241,7 @@ export function update(dt: number) {
   if (mouseDown && player.attackCooldown <= 0) {
     player.attackCooldown = Math.max(0.15, 0.4 - player.stats.speed * 0.02);
     player.isAttacking = true;
+    SFX.attack();
     const projSpeed = 300;
     projectiles.push({
       id: `proj_${projIdCounter++}`,
@@ -318,6 +327,7 @@ export function update(dt: number) {
           addDamageNumber(enemy.pos, dmg, p.element, isCrit);
           applyElementEffect(enemy, p.element);
           screenShake = isCrit ? 6 : 3;
+          if (isCrit) SFX.critHit(); else SFX.hit();
           if (enemy.hp <= 0) onEnemyKill(enemy);
           projectiles.splice(i, 1);
           break;
@@ -332,6 +342,7 @@ export function update(dt: number) {
         player.invincible = 0.3;
         addDamageNumber(player.pos, dmg, p.element, false);
         screenShake = 4;
+        SFX.playerHurt();
         projectiles.splice(i, 1);
       }
     }
@@ -402,6 +413,7 @@ export function update(dt: number) {
   // Check room cleared
   if (!room.cleared && room.enemies.every(e => e.hp <= 0)) {
     room.cleared = true;
+    SFX.roomCleared();
     onRoomCleared?.();
     // Random lore find
     if (Math.random() < 0.3) {
@@ -492,34 +504,103 @@ function updateEnemy(enemy: Enemy, dt: number) {
     }
   }
 
-  // Boss special attacks
-  if (enemy.isBoss && enemy.hp < enemy.maxHp * 0.5 && enemy.phase === 1) {
-    enemy.phase = 2;
-    enemy.damage = Math.floor(enemy.damage * 1.3);
-    enemy.speed *= 1.2;
-    screenShake = 10;
-    // Phase 2 burst
-    for (let a = 0; a < 8; a++) {
-      const angle = (a / 8) * Math.PI * 2;
-      projectiles.push({
-        id: `proj_${projIdCounter++}`,
-        pos: { x: enemy.pos.x + 12, y: enemy.pos.y + 12 },
-        vel: { x: Math.cos(angle) * 150, y: Math.sin(angle) * 150 },
-        damage: enemy.damage,
-        element: enemy.element,
-        fromPlayer: false,
-        lifetime: 2,
-        radius: 6,
-      });
+  // Boss special attacks — 4 phases
+  if (enemy.isBoss) {
+    const hpPct = enemy.hp / enemy.maxHp;
+    
+    // Phase 2 at 75%
+    if (hpPct < 0.75 && enemy.phase === 1) {
+      enemy.phase = 2;
+      enemy.damage = Math.floor(enemy.damage * 1.2);
+      enemy.speed *= 1.15;
+      enemy.attackCooldown *= 0.85;
+      screenShake = 8;
+      SFX.phaseTransition();
+      // Radial burst
+      for (let a = 0; a < 8; a++) {
+        const angle = (a / 8) * Math.PI * 2;
+        projectiles.push({
+          id: `proj_${projIdCounter++}`,
+          pos: { x: enemy.pos.x + 12, y: enemy.pos.y + 12 },
+          vel: { x: Math.cos(angle) * 150, y: Math.sin(angle) * 150 },
+          damage: enemy.damage, element: enemy.element, fromPlayer: false, lifetime: 2, radius: 6,
+        });
+      }
     }
-    for (let i = 0; i < 20; i++) {
-      particles.push({
-        x: enemy.pos.x + 12, y: enemy.pos.y + 12,
-        vx: (Math.random() - 0.5) * 200, vy: (Math.random() - 0.5) * 200,
-        life: 0.5, maxLife: 0.5,
-        color: ELEMENT_COLORS[enemy.element],
-        size: 4,
-      });
+    
+    // Phase 3 at 50% — spread shots and arena hazards expand
+    if (hpPct < 0.5 && enemy.phase === 2) {
+      enemy.phase = 3;
+      enemy.damage = Math.floor(enemy.damage * 1.2);
+      enemy.speed *= 1.15;
+      screenShake = 12;
+      SFX.phaseTransition();
+      // Double radial burst
+      for (let a = 0; a < 16; a++) {
+        const angle = (a / 16) * Math.PI * 2;
+        projectiles.push({
+          id: `proj_${projIdCounter++}`,
+          pos: { x: enemy.pos.x + 12, y: enemy.pos.y + 12 },
+          vel: { x: Math.cos(angle) * 120, y: Math.sin(angle) * 120 },
+          damage: enemy.damage, element: enemy.element, fromPlayer: false, lifetime: 2.5, radius: 7,
+        });
+      }
+      // Expand arena hazards
+      for (let y = 1; y < room.height - 1; y++) {
+        for (let x = 1; x < room.width - 1; x++) {
+          if (room.tiles[y][x] === 2) {
+            // Spread hazards to adjacent tiles
+            if (x + 1 < room.width - 1 && room.tiles[y][x + 1] === 0 && Math.random() < 0.4) room.tiles[y][x + 1] = 2;
+            if (y + 1 < room.height - 1 && room.tiles[y + 1][x] === 0 && Math.random() < 0.4) room.tiles[y + 1][x] = 2;
+          }
+        }
+      }
+    }
+    
+    // Phase 4 (Enrage) at 25%
+    if (hpPct < 0.25 && enemy.phase === 3) {
+      enemy.phase = 4;
+      enemy.damage = Math.floor(enemy.damage * 1.3);
+      enemy.speed *= 1.3;
+      enemy.attackCooldown *= 0.6;
+      screenShake = 15;
+      SFX.phaseTransition();
+      // Massive burst
+      for (let a = 0; a < 24; a++) {
+        const angle = (a / 24) * Math.PI * 2;
+        projectiles.push({
+          id: `proj_${projIdCounter++}`,
+          pos: { x: enemy.pos.x + 12, y: enemy.pos.y + 12 },
+          vel: { x: Math.cos(angle) * 180, y: Math.sin(angle) * 180 },
+          damage: enemy.damage * 1.2, element: enemy.element, fromPlayer: false, lifetime: 2, radius: 8,
+        });
+      }
+      for (let i = 0; i < 30; i++) {
+        particles.push({
+          x: enemy.pos.x + 12, y: enemy.pos.y + 12,
+          vx: (Math.random() - 0.5) * 300, vy: (Math.random() - 0.5) * 300,
+          life: 0.7, maxLife: 0.7,
+          color: ELEMENT_COLORS[enemy.element], size: 5,
+        });
+      }
+    }
+
+    // Boss periodic attacks based on phase
+    if (enemy.stateTimer <= 0) {
+      enemy.stateTimer = Math.max(0.8, 2.5 - enemy.phase * 0.4);
+      // Spiral attack in higher phases
+      if (enemy.phase >= 2) {
+        const spiralCount = enemy.phase + 2;
+        for (let a = 0; a < spiralCount; a++) {
+          const angle = (a / spiralCount) * Math.PI * 2 + gameTime * 2;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: enemy.pos.x + 16, y: enemy.pos.y + 16 },
+            vel: { x: Math.cos(angle) * 130, y: Math.sin(angle) * 130 },
+            damage: enemy.damage * 0.6, element: enemy.element, fromPlayer: false, lifetime: 2, radius: 5,
+          });
+        }
+      }
     }
   }
 }
@@ -555,17 +636,25 @@ function applyElementEffect(enemy: Enemy, element: ElementType) {
 }
 
 function onEnemyKill(enemy: Enemy) {
-  const xpGain = enemy.isBoss ? 100 : enemy.type === 'miniboss' ? 40 : 15 + floor * 2;
+  const xpGain = enemy.isBoss ? 200 : enemy.type === 'miniboss' ? 40 : 15 + floor * 2;
   player.xp += xpGain;
   
+  if (enemy.isBoss) {
+    SFX.bossDefeat();
+  } else {
+    SFX.enemyDeath();
+  }
+  
   // Death particles
-  for (let i = 0; i < 12; i++) {
+  const particleCount = enemy.isBoss ? 30 : 12;
+  for (let i = 0; i < particleCount; i++) {
     particles.push({
       x: enemy.pos.x + 12, y: enemy.pos.y + 12,
-      vx: (Math.random() - 0.5) * 150, vy: (Math.random() - 0.5) * 150,
-      life: 0.5, maxLife: 0.5,
+      vx: (Math.random() - 0.5) * (enemy.isBoss ? 300 : 150),
+      vy: (Math.random() - 0.5) * (enemy.isBoss ? 300 : 150),
+      life: enemy.isBoss ? 1 : 0.5, maxLife: enemy.isBoss ? 1 : 0.5,
       color: ELEMENT_COLORS[enemy.element],
-      size: 3 + Math.random() * 3,
+      size: 3 + Math.random() * (enemy.isBoss ? 6 : 3),
     });
   }
 
@@ -578,6 +667,7 @@ function onEnemyKill(enemy: Enemy) {
     player.hp = player.maxHp;
     player.mana = player.maxMana;
     screenShake = 8;
+    SFX.levelUp();
     onLevelUp?.();
     // Level up particles
     for (let i = 0; i < 20; i++) {
@@ -594,9 +684,19 @@ function onEnemyKill(enemy: Enemy) {
   if (enemy.isBoss) {
     const loreId = `guardian_${enemy.element === 'fire' ? 'ignis' : enemy.element === 'ice' ? 'glacius' : enemy.element === 'lightning' ? 'voltaris' : 'umbra'}`;
     onLoreFound?.(loreId);
+    // Also unlock the fall/extra lore
+    const extraLore: Record<string, string> = {
+      fire: 'guardian_ignis_fall',
+      ice: 'guardian_glacius_archive',
+      lightning: 'guardian_voltaris_warning',
+      shadow: 'guardian_umbra_sacrifice',
+    };
+    if (extraLore[enemy.element]) onLoreFound?.(extraLore[enemy.element]);
+    
     // Unlock the boss's element
     if (!player.unlockedElements.includes(enemy.element)) {
       player.unlockedElements.push(enemy.element);
+      SFX.elementUnlock();
       onStateChange?.();
     }
     // Unlock next zone
@@ -606,6 +706,8 @@ function onEnemyKill(enemy: Enemy) {
       player.unlockedElements.push(zoneOrder[nextIdx]);
       onStateChange?.();
     }
+    // Trigger post-boss cutscene
+    onBossDefeated?.(enemy.element);
   }
 }
 

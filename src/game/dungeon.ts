@@ -9,7 +9,7 @@ function createEnemy(type: EnemyType, pos: Position, element: ElementType, isBos
     assassin: { hp: 15, speed: 3, damage: 15 },
     tank: { hp: 80, speed: 0.7, damage: 5 },
     miniboss: { hp: 150, speed: 1.2, damage: 18 },
-    boss: { hp: 400, speed: 1, damage: 25 },
+    boss: { hp: 900, speed: 1.2, damage: 30 },
   };
 
   const stats = baseStats[type];
@@ -68,7 +68,24 @@ export function generateRoom(zone: ElementType, floor: number, isBossRoom: boole
   // Generate enemies
   const enemies: Enemy[] = [];
   if (isBossRoom) {
-    enemies.push(createEnemy('boss', { x: cx * TILE_SIZE, y: 3 * TILE_SIZE }, zone, true));
+    const boss = createEnemy('boss', { x: cx * TILE_SIZE, y: 3 * TILE_SIZE }, zone, true);
+    // Scale boss with floor
+    boss.hp = Math.floor(boss.hp * (1 + floor * 0.12));
+    boss.maxHp = boss.hp;
+    boss.damage = Math.floor(boss.damage * (1 + floor * 0.08));
+    enemies.push(boss);
+    // Add lava/hazard pools in boss arena
+    const hazardPositions = [
+      [3, 3], [width - 4, 3], [3, height - 4], [width - 4, height - 4],
+      [cx - 3, cy], [cx + 3, cy], [cx, cy - 3], [cx, cy + 3],
+    ];
+    for (const [hx, hy] of hazardPositions) {
+      if (hx > 0 && hx < width - 1 && hy > 0 && hy < height - 1) {
+        tiles[hy][hx] = 2;
+        if (hx + 1 < width - 1) tiles[hy][hx + 1] = 2;
+        if (hy + 1 < height - 1) tiles[hy + 1][hx] = 2;
+      }
+    }
   } else {
     const enemyCount = 3 + Math.floor(floor * 0.8);
     const types: EnemyType[] = ['melee', 'melee', 'ranged', 'assassin', 'tank'];
