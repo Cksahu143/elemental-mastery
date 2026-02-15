@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, LoreEntry } from '../game/types';
-import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, unlockSkill } from '../game/engine';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, LoreEntry, SKILLS } from '../game/types';
+import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, unlockSkill, getActiveSkills } from '../game/engine';
 import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/saveSystem';
 import TitleScreen from './TitleScreen';
 import GameHUD from './GameHUD';
@@ -10,8 +10,19 @@ import BossDialogue from './BossDialogue';
 import DeathScreen from './DeathScreen';
 import PauseMenu from './PauseMenu';
 import SkillTree from './SkillTree';
+import Tutorial from './Tutorial';
+import NPCDialogue from './NPCDialogue';
 
 type GamePhase = 'title' | 'playing' | 'paused';
+
+const POST_INTRO_DIALOGUE = [
+  { speaker: 'Mysterious Voice', text: 'You stir at last... The Shattering has left this world in ruin.', color: '#A855F7' },
+  { speaker: 'Mysterious Voice', text: 'I am but an echo — a fragment of what the Guardians once were.', color: '#A855F7' },
+  { speaker: 'Mysterious Voice', text: 'The fire element burns strongest here. Absorb its shards and grow.', color: '#F97316' },
+  { speaker: 'Mysterious Voice', text: 'Press 1-4 to cast abilities once you\'ve unlocked them in the Skill Tree.', color: '#EAB308' },
+  { speaker: 'Mysterious Voice', text: 'Defeat the bosses that guard each zone. Reclaim the elements. Restore balance.', color: '#38BDF8' },
+  { speaker: 'Mysterious Voice', text: 'Go now, Fragment Bearer. The world awaits.', color: '#A855F7' },
+];
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,6 +37,8 @@ export default function GameCanvas() {
   const [showDeath, setShowDeath] = useState(false);
   const [loreUnlocked, setLoreUnlocked] = useState<string[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [showNPCDialogue, setShowNPCDialogue] = useState(false);
 
   const hasSave = loadGame() !== null;
 
@@ -34,21 +47,24 @@ export default function GameCanvas() {
     setTimeout(() => setNotification(null), 2000);
   }, []);
 
-  const startGame = useCallback((save: ReturnType<typeof getDefaultSave>) => {
+  const startGame = useCallback((save: ReturnType<typeof getDefaultSave>, isNew: boolean) => {
     initGame(save);
     setLoreUnlocked(save.loreUnlocked || []);
     setPhase('playing');
     setShowDeath(false);
+    if (isNew) {
+      setShowNPCDialogue(true);
+    }
   }, []);
 
   const handleNewGame = useCallback(() => {
-    startGame(getDefaultSave());
+    startGame(getDefaultSave(), true);
   }, [startGame]);
 
   const handleContinue = useCallback(() => {
     const save = loadGame();
-    if (save) startGame(save);
-    else startGame(getDefaultSave());
+    if (save) startGame(save, false);
+    else startGame(getDefaultSave(), true);
   }, [startGame]);
 
   // Set up callbacks
@@ -86,7 +102,7 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      if (!showLore && !showStats && !showSkills && !bossZone && !showDeath) {
+      if (!showLore && !showStats && !showSkills && !bossZone && !showDeath && !showTutorial && !showNPCDialogue) {
         update(dt);
       }
 
@@ -104,7 +120,7 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue]);
 
   // ESC key
   useEffect(() => {
@@ -172,6 +188,13 @@ export default function GameCanvas() {
       {showSkills && player && <SkillTree player={player} onClose={() => setShowSkills(false)} />}
       {showStats && player && <StatAllocation player={player} onClose={() => setShowStats(false)} />}
       {bossZone && <BossDialogue zone={bossZone} onComplete={() => setBossZone(null)} />}
+      {showNPCDialogue && (
+        <NPCDialogue
+          lines={POST_INTRO_DIALOGUE}
+          onComplete={() => { setShowNPCDialogue(false); setShowTutorial(true); }}
+        />
+      )}
+      {showTutorial && <Tutorial onComplete={() => setShowTutorial(false)} />}
       {showDeath && (
         <DeathScreen
           onRespawn={() => { respawnPlayer(); setShowDeath(false); }}

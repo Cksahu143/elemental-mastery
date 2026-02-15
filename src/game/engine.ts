@@ -1,7 +1,7 @@
 import {
   PlayerState, Enemy, Projectile, DamageNumber, Particle,
   GameRoom, Position, ElementType, TILE_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT,
-  ELEMENT_COLORS, ELEMENT_COLORS_DARK, StatusEffect,
+  ELEMENT_COLORS, ELEMENT_COLORS_DARK, StatusEffect, SKILLS,
 } from './types';
 import { generateRoom, getTileColor } from './dungeon';
 import { SaveData } from './types';
@@ -217,6 +217,18 @@ export function update(dt: number) {
     player.facing = { x: fdx / flen, y: fdy / flen };
   }
 
+  // Skill usage (keys 1-4)
+  const skillSlots = getActiveSkills();
+  for (let si = 0; si < skillSlots.length; si++) {
+    const sk = skillSlots[si];
+    if (keys[`${si + 1}`] && player.mana >= sk.manaCost && player.attackCooldown <= 0) {
+      keys[`${si + 1}`] = false; // consume key press
+      player.mana -= sk.manaCost;
+      player.attackCooldown = 0.5;
+      fireSkill(sk.id);
+    }
+  }
+
   // Attack
   if (mouseDown && player.attackCooldown <= 0) {
     player.attackCooldown = Math.max(0.15, 0.4 - player.stats.speed * 0.02);
@@ -346,11 +358,19 @@ export function update(dt: number) {
       }
       if (eff.duration <= 0) enemy.statusEffects.splice(j, 1);
     }
-    // Knockback decay
+    // Knockback decay — clamp to prevent wall-stuck
     enemy.knockback.x *= 0.9;
     enemy.knockback.y *= 0.9;
-    enemy.pos.x += enemy.knockback.x;
-    enemy.pos.y += enemy.knockback.y;
+    const newEx = enemy.pos.x + enemy.knockback.x;
+    const newEy = enemy.pos.y + enemy.knockback.y;
+    if (!collidesWith(newEx, newEy)) {
+      enemy.pos.x = newEx;
+      enemy.pos.y = newEy;
+    } else {
+      // If knockback would push into wall, stop knockback entirely
+      enemy.knockback.x = 0;
+      enemy.knockback.y = 0;
+    }
   }
 
   // Update particles
@@ -817,5 +837,196 @@ export function unlockSkill(skillId: string) {
   if (!player.skills.includes(skillId)) {
     player.skills.push(skillId);
     onStateChange?.();
+  }
+}
+
+export function getActiveSkills() {
+  if (!player) return [];
+  const allSkills = SKILLS[player.element] || [];
+  return allSkills.filter(s => player.skills.includes(s.id));
+}
+
+function fireSkill(skillId: string) {
+  const px = player.pos.x + 12;
+  const py = player.pos.y + 12;
+  const fx = player.facing.x;
+  const fy = player.facing.y;
+  const baseDmg = player.stats.attack + player.stats.elementalPower;
+
+  switch (skillId) {
+    case 'flame_wave': {
+      for (let i = -2; i <= 2; i++) {
+        const angle = Math.atan2(fy, fx) + i * 0.25;
+        projectiles.push({
+          id: `proj_${projIdCounter++}`,
+          pos: { x: px, y: py },
+          vel: { x: Math.cos(angle) * 250, y: Math.sin(angle) * 250 },
+          damage: baseDmg * 0.8,
+          element: 'fire', fromPlayer: true, lifetime: 0.6, radius: 8,
+        });
+      }
+      break;
+    }
+    case 'meteor_drop': {
+      const tx = mousePos.x + camera.x;
+      const ty = mousePos.y + camera.y;
+      // Delayed impact — spawn projectiles in a ring at target
+      setTimeout(() => {
+        for (let a = 0; a < 8; a++) {
+          const angle = (a / 8) * Math.PI * 2;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: tx, y: ty },
+            vel: { x: Math.cos(angle) * 80, y: Math.sin(angle) * 80 },
+            damage: baseDmg * 1.5,
+            element: 'fire', fromPlayer: true, lifetime: 0.4, radius: 10,
+          });
+        }
+        screenShake = 10;
+        for (let i = 0; i < 15; i++) {
+          particles.push({
+            x: tx, y: ty,
+            vx: (Math.random() - 0.5) * 200, vy: (Math.random() - 0.5) * 200,
+            life: 0.5, maxLife: 0.5, color: '#ff6622', size: 4 + Math.random() * 4,
+          });
+        }
+      }, 300);
+      break;
+    }
+    case 'frost_wall': {
+      // Create a line of slow projectiles perpendicular to facing
+      const perp = { x: -fy, y: fx };
+      for (let i = -3; i <= 3; i++) {
+        projectiles.push({
+          id: `proj_${projIdCounter++}`,
+          pos: { x: px + perp.x * i * 20 + fx * 60, y: py + perp.y * i * 20 + fy * 60 },
+          vel: { x: 0, y: 0 },
+          damage: baseDmg * 0.3,
+          element: 'ice', fromPlayer: true, lifetime: 2.5, radius: 10,
+        });
+      }
+      break;
+    }
+    case 'absolute_zero': {
+      // AoE freeze around player
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist({ x: px, y: py }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+        if (d < 150) {
+          enemy.hp -= baseDmg * 0.6;
+          applyElementEffect(enemy, 'ice');
+          applyElementEffect(enemy, 'ice');
+          addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.6), 'ice', false);
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+        }
+      }
+      screenShake = 6;
+      for (let i = 0; i < 20; i++) {
+        const angle = (i / 20) * Math.PI * 2;
+        particles.push({
+          x: px, y: py,
+          vx: Math.cos(angle) * 120, vy: Math.sin(angle) * 120,
+          life: 0.5, maxLife: 0.5, color: '#38BDF8', size: 4,
+        });
+      }
+      break;
+    }
+    case 'thunder_dash': {
+      // Dash forward damaging enemies in path
+      const dashDist = 120;
+      player.pos.x += fx * dashDist;
+      player.pos.y += fy * dashDist;
+      player.invincible = 0.3;
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist(player.pos, enemy.pos);
+        if (d < 80) {
+          enemy.hp -= baseDmg;
+          addDamageNumber(enemy.pos, Math.floor(baseDmg), 'lightning', false);
+          applyElementEffect(enemy, 'lightning');
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+        }
+      }
+      screenShake = 5;
+      break;
+    }
+    case 'storm_field': {
+      const tx = mousePos.x + camera.x;
+      const ty = mousePos.y + camera.y;
+      // Create lightning strikes over time
+      for (let t = 0; t < 5; t++) {
+        setTimeout(() => {
+          const sx = tx + (Math.random() - 0.5) * 100;
+          const sy = ty + (Math.random() - 0.5) * 100;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: sx, y: sy },
+            vel: { x: 0, y: 0 },
+            damage: baseDmg * 0.7,
+            element: 'lightning', fromPlayer: true, lifetime: 0.3, radius: 14,
+          });
+          screenShake = 3;
+        }, t * 200);
+      }
+      break;
+    }
+    case 'shadow_clone': {
+      // Spawn a clone that fires at enemies
+      const cloneX = px + (Math.random() - 0.5) * 60;
+      const cloneY = py + (Math.random() - 0.5) * 60;
+      for (let t = 0; t < 6; t++) {
+        setTimeout(() => {
+          // Find nearest enemy
+          let nearest: Enemy | null = null;
+          let nd = Infinity;
+          for (const e of room.enemies) {
+            if (e.hp <= 0) continue;
+            const d = dist({ x: cloneX, y: cloneY }, e.pos);
+            if (d < nd) { nd = d; nearest = e; }
+          }
+          if (nearest) {
+            const dx = nearest.pos.x - cloneX;
+            const dy = nearest.pos.y - cloneY;
+            const dl = Math.sqrt(dx * dx + dy * dy);
+            projectiles.push({
+              id: `proj_${projIdCounter++}`,
+              pos: { x: cloneX, y: cloneY },
+              vel: { x: (dx / dl) * 250, y: (dy / dl) * 250 },
+              damage: baseDmg * 0.5,
+              element: 'shadow', fromPlayer: true, lifetime: 0.8, radius: 5,
+            });
+          }
+        }, t * 300);
+      }
+      break;
+    }
+    case 'void_rift': {
+      const tx = mousePos.x + camera.x;
+      const ty = mousePos.y + camera.y;
+      // Pull enemies toward point and damage
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist({ x: tx, y: ty }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+        if (d < 160) {
+          const pull = 80 / Math.max(d, 30);
+          enemy.knockback.x += (tx - enemy.pos.x) * pull * 0.1;
+          enemy.knockback.y += (ty - enemy.pos.y) * pull * 0.1;
+          enemy.hp -= baseDmg * 0.4;
+          addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.4), 'shadow', false);
+          applyElementEffect(enemy, 'shadow');
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+        }
+      }
+      screenShake = 6;
+      for (let i = 0; i < 15; i++) {
+        particles.push({
+          x: tx + (Math.random() - 0.5) * 80, y: ty + (Math.random() - 0.5) * 80,
+          vx: (tx - (tx + (Math.random() - 0.5) * 80)) * 2,
+          vy: (ty - (ty + (Math.random() - 0.5) * 80)) * 2,
+          life: 0.6, maxLife: 0.6, color: '#A855F7', size: 3,
+        });
+      }
+      break;
+    }
   }
 }

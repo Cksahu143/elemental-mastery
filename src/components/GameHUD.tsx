@@ -1,5 +1,5 @@
-import { PlayerState, ElementType, ELEMENT_COLORS, ZONE_NAMES } from '../game/types';
-import { switchElement } from '../game/engine';
+import { PlayerState, ElementType, ELEMENT_COLORS, ZONE_NAMES, SKILLS } from '../game/types';
+import { switchElement, getActiveSkills } from '../game/engine';
 
 interface GameHUDProps {
   player: PlayerState;
@@ -130,9 +130,37 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
         </div>
       )}
 
-      {/* Bottom-center: Dash cooldown */}
+      {/* Bottom-center: Dash + Skills */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {/* Skill slots */}
+          {(() => {
+            const activeSkills = getActiveSkills();
+            const allSkills = SKILLS[player.element] || [];
+            return allSkills.map((skill, idx) => {
+              const owned = activeSkills.some(s => s.id === skill.id);
+              const hasEnoughMana = player.mana >= skill.manaCost;
+              return (
+                <div key={skill.id} className="text-center">
+                  <div
+                    className="w-12 h-12 border-2 flex flex-col items-center justify-center text-[10px] font-ui font-bold transition-colors"
+                    style={{
+                      borderColor: !owned ? 'hsl(var(--muted))' : hasEnoughMana ? ELEMENT_COLORS[player.element] : 'hsl(var(--muted-foreground))',
+                      color: !owned ? 'hsl(var(--muted))' : hasEnoughMana ? ELEMENT_COLORS[player.element] : 'hsl(var(--muted-foreground))',
+                      opacity: owned ? 1 : 0.3,
+                      boxShadow: owned && hasEnoughMana ? `0 0 10px ${ELEMENT_COLORS[player.element]}40` : 'none',
+                    }}
+                    title={owned ? `${skill.name} (${skill.manaCost} MP)` : 'Locked'}
+                  >
+                    <span className="text-sm font-bold">{idx + 1}</span>
+                    <span className="text-[8px] truncate w-full text-center px-0.5">{owned ? skill.name.split(' ')[0] : '?'}</span>
+                  </div>
+                </div>
+              );
+            });
+          })()}
+
+          {/* Dash */}
           <div className="text-center">
             <div
               className="w-12 h-12 border-2 flex items-center justify-center text-lg font-ui font-bold transition-colors"
