@@ -87,8 +87,10 @@ export function generateRoom(zone: ElementType, floor: number, isBossRoom: boole
       }
     }
   } else {
-    const enemyCount = 3 + Math.floor(floor * 0.8);
-    const types: EnemyType[] = ['melee', 'melee', 'ranged', 'assassin', 'tank'];
+    // Gentler start: fewer enemies on early floors
+    const enemyCount = floor <= 2 ? 2 + Math.floor(floor * 0.5) : 3 + Math.floor(floor * 0.8);
+    // Early floors only have basic melee enemies
+    const types: EnemyType[] = floor <= 1 ? ['melee'] : floor <= 3 ? ['melee', 'melee', 'ranged'] : ['melee', 'melee', 'ranged', 'assassin', 'tank'];
     
     for (let i = 0; i < enemyCount; i++) {
       let ex, ey;
@@ -99,10 +101,12 @@ export function generateRoom(zone: ElementType, floor: number, isBossRoom: boole
       
       const type = types[Math.floor(Math.random() * types.length)];
       const scaledEnemy = createEnemy(type, { x: ex * TILE_SIZE, y: ey * TILE_SIZE }, zone);
-      // Scale with floor
-      scaledEnemy.hp = Math.floor(scaledEnemy.hp * (1 + floor * 0.15));
+      // Scale with floor — gentle at start
+      const hpScale = floor <= 2 ? 1 + floor * 0.05 : 1 + floor * 0.15;
+      const dmgScale = floor <= 2 ? 1 : 1 + floor * 0.1;
+      scaledEnemy.hp = Math.floor(scaledEnemy.hp * hpScale);
       scaledEnemy.maxHp = scaledEnemy.hp;
-      scaledEnemy.damage = Math.floor(scaledEnemy.damage * (1 + floor * 0.1));
+      scaledEnemy.damage = Math.floor(scaledEnemy.damage * dmgScale);
       enemies.push(scaledEnemy);
     }
 

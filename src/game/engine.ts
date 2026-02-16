@@ -5,7 +5,7 @@ import {
 } from './types';
 import { generateRoom, getTileColor } from './dungeon';
 import { SaveData } from './types';
-import { SFX, startAmbientMusic } from './audio';
+import { SFX, startAmbientMusic, startBossMusic, stopBossMusic } from './audio';
 
 // ─── Input tracking ───
 const keys: Record<string, boolean> = {};
@@ -107,6 +107,7 @@ function loadRoom(zone: ElementType, fl: number) {
   if (isBoss && !bossDialogueShown) {
     bossDialogueShown = true;
     SFX.bossRoar();
+    startBossMusic(zone);
     onBossEncounter?.(zone);
   }
 }
@@ -641,6 +642,8 @@ function onEnemyKill(enemy: Enemy) {
   
   if (enemy.isBoss) {
     SFX.bossDefeat();
+    stopBossMusic();
+    startAmbientMusic(player.element);
   } else {
     SFX.enemyDeath();
   }

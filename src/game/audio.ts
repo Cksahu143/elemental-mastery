@@ -137,3 +137,74 @@ export function stopAmbientMusic() {
     currentZone = null;
   }
 }
+
+// Boss music system — unique per zone
+let bossInterval: number | null = null;
+let currentBossZone: string | null = null;
+
+const BOSS_SCALES: Record<string, { notes: number[]; bassNotes: number[]; tempo: number }> = {
+  fire: {
+    notes: [440, 554, 659, 880, 1108],
+    bassNotes: [110, 138, 165, 220],
+    tempo: 280,
+  },
+  ice: {
+    notes: [523, 622, 784, 932, 1047],
+    bassNotes: [131, 165, 196, 261],
+    tempo: 400,
+  },
+  lightning: {
+    notes: [659, 784, 880, 1047, 1319],
+    bassNotes: [165, 196, 220, 329],
+    tempo: 200,
+  },
+  shadow: {
+    notes: [392, 466, 523, 622, 784],
+    bassNotes: [98, 116, 131, 196],
+    tempo: 350,
+  },
+};
+
+export function startBossMusic(zone: string) {
+  stopBossMusic();
+  stopAmbientMusic();
+  currentBossZone = zone;
+  const config = BOSS_SCALES[zone] || BOSS_SCALES.fire;
+  
+  let beat = 0;
+  bossInterval = window.setInterval(() => {
+    beat++;
+    // Driving bass
+    const bassNote = config.bassNotes[beat % config.bassNotes.length];
+    playTone(bassNote, 0.2, 'sawtooth', 0.08);
+    
+    // Percussion
+    if (beat % 2 === 0) playNoise(0.05, 0.06);
+    
+    // Melody on alternating beats
+    if (beat % 3 === 0) {
+      const note = config.notes[Math.floor(Math.random() * config.notes.length)];
+      playTone(note, 0.15, 'square', 0.05);
+    }
+    
+    // Tension chord every 8 beats
+    if (beat % 8 === 0) {
+      const chord = config.notes.slice(0, 3);
+      chord.forEach((n, i) => {
+        setTimeout(() => playTone(n, 0.4, 'triangle', 0.04), i * 30);
+      });
+    }
+  }, config.tempo);
+}
+
+export function stopBossMusic() {
+  if (bossInterval !== null) {
+    clearInterval(bossInterval);
+    bossInterval = null;
+    currentBossZone = null;
+  }
+}
+
+export function getCurrentBossZone(): string | null {
+  return currentBossZone;
+}

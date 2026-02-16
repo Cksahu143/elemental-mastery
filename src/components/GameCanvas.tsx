@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, LoreEntry, SKILLS } from '../game/types';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, SKILLS } from '../game/types';
 import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, unlockSkill, getActiveSkills } from '../game/engine';
 import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/saveSystem';
 import { POST_BOSS_DIALOGUES } from '../game/lore';
@@ -15,6 +15,7 @@ import SkillTree from './SkillTree';
 import Tutorial from './Tutorial';
 import NPCDialogue from './NPCDialogue';
 import StoryCutscene from './StoryCutscene';
+import SceneBackground from './SceneBackground';
 
 type GamePhase = 'title' | 'playing' | 'paused';
 
@@ -26,6 +27,25 @@ const POST_INTRO_DIALOGUE = [
   { speaker: 'Mysterious Voice', text: 'Defeat the bosses that guard each zone. Reclaim the elements. Restore balance.', color: '#38BDF8' },
   { speaker: 'Mysterious Voice', text: 'Go now, Fragment Bearer. The world awaits.', color: '#A855F7' },
 ];
+
+const ZONE_ENTRY_DIALOGUES: Record<ElementType, { speaker: string; text: string; color: string }[]> = {
+  fire: [], // handled by POST_INTRO_DIALOGUE
+  ice: [
+    { speaker: 'Echo of Ignis', text: 'The Frozen Wastes stretch before you. Glacius\'s sorrow has crystallized the very air.', color: '#FF4500' },
+    { speaker: 'Echo of Ignis', text: 'Tread carefully — the ice remembers all who fall upon it.', color: '#FF4500' },
+    { speaker: 'Mysterious Voice', text: 'Ice enemies resist cold. Switch to Fire for advantage, or master ice\'s slowing power.', color: '#A855F7' },
+  ],
+  lightning: [
+    { speaker: 'Echo of Glacius', text: 'The Storm Citadel crackles with unchecked fury. Voltaris\'s rage echoes in every bolt.', color: '#67E8F9' },
+    { speaker: 'Echo of Glacius', text: 'The storms here are alive — and they do not welcome visitors.', color: '#67E8F9' },
+    { speaker: 'Mysterious Voice', text: 'Lightning enemies are fast. Use ice to slow them, or match their speed.', color: '#A855F7' },
+  ],
+  shadow: [
+    { speaker: 'Echo of Voltaris', text: 'The Abyssal Hollow... even my light cannot reach its depths.', color: '#FACC15' },
+    { speaker: 'Echo of Voltaris', text: 'What waits below is not merely an enemy. It is hunger itself.', color: '#FACC15' },
+    { speaker: 'Mysterious Voice', text: 'Shadow enemies drain life. Your shadow skills heal — use that wisely.', color: '#A855F7' },
+  ],
+};
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -43,6 +63,8 @@ export default function GameCanvas() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNPCDialogue, setShowNPCDialogue] = useState(false);
   const [bossCutsceneZone, setBossCutsceneZone] = useState<ElementType | null>(null);
+  const [zoneEntryDialogue, setZoneEntryDialogue] = useState<ElementType | null>(null);
+  const [currentZone, setCurrentZone] = useState<ElementType>('fire');
 
   const hasSave = loadGame() !== null;
 
@@ -54,6 +76,7 @@ export default function GameCanvas() {
   const startGame = useCallback((save: ReturnType<typeof getDefaultSave>, isNew: boolean) => {
     initGame(save);
     setLoreUnlocked(save.loreUnlocked || []);
+    setCurrentZone(save.currentZone);
     setPhase('playing');
     setShowDeath(false);
     if (isNew) {
@@ -74,7 +97,19 @@ export default function GameCanvas() {
   // Set up callbacks
   useEffect(() => {
     setCallbacks({
-      onStateChange: () => forceUpdate(n => n + 1),
+      onStateChange: () => {
+        forceUpdate(n => n + 1);
+        const p = getPlayer();
+        if (p && p.element !== currentZone) {
+          const prevZone = currentZone;
+          setCurrentZone(p.element);
+          // Show zone entry dialogue for new zones
+          const dialogues = ZONE_ENTRY_DIALOGUES[p.element];
+          if (dialogues && dialogues.length > 0 && prevZone !== p.element) {
+            setZoneEntryDialogue(p.element);
+          }
+        }
+      },
       onBossEncounter: (zone) => setBossZone(zone),
       onLoreFound: (id) => {
         setLoreUnlocked(prev => {
@@ -91,7 +126,7 @@ export default function GameCanvas() {
       onRoomCleared: () => showNotif('Room Cleared!'),
       onBossDefeated: (zone) => setBossCutsceneZone(zone),
     });
-  }, [showNotif]);
+  }, [showNotif, currentZone]);
 
   // Game loop
   useEffect(() => {
@@ -108,7 +143,7 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      if (!showLore && !showStats && !showSkills && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone) {
+      if (!showLore && !showStats && !showSkills && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone && !zoneEntryDialogue) {
         update(dt);
       }
 
@@ -126,7 +161,7 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue]);
 
   // ESC key
   useEffect(() => {
@@ -161,6 +196,9 @@ export default function GameCanvas() {
 
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center">
+      {/* 3D Background */}
+      <SceneBackground zone={currentZone} />
+
       <div className="relative" style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}>
         <canvas
           ref={canvasRef}
@@ -197,14 +235,23 @@ export default function GameCanvas() {
       {showNPCDialogue && (
         <NPCDialogue
           lines={POST_INTRO_DIALOGUE}
+          zone={currentZone}
           onComplete={() => { setShowNPCDialogue(false); setShowTutorial(true); }}
         />
       )}
       {showTutorial && <Tutorial onComplete={() => setShowTutorial(false)} />}
+      {zoneEntryDialogue && (
+        <NPCDialogue
+          lines={ZONE_ENTRY_DIALOGUES[zoneEntryDialogue]}
+          zone={zoneEntryDialogue}
+          onComplete={() => setZoneEntryDialogue(null)}
+        />
+      )}
       {bossCutsceneZone && (
         <StoryCutscene
           title={`${bossCutsceneZone === 'fire' ? 'Ignis' : bossCutsceneZone === 'ice' ? 'Glacius' : bossCutsceneZone === 'lightning' ? 'Voltaris' : 'Umbra'} Defeated`}
           lines={POST_BOSS_DIALOGUES[bossCutsceneZone] || []}
+          zone={bossCutsceneZone}
           onComplete={() => setBossCutsceneZone(null)}
         />
       )}

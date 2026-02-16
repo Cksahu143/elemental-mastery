@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
+import DialogueParticles from './DialogueParticles';
+import { ElementType } from '../game/types';
 
 interface NPCDialogueProps {
   lines: { speaker: string; text: string; color?: string }[];
   onComplete: () => void;
+  zone?: ElementType;
 }
 
-export default function NPCDialogue({ lines, onComplete }: NPCDialogueProps) {
+export default function NPCDialogue({ lines, onComplete, zone = 'fire' }: NPCDialogueProps) {
   const [currentLine, setCurrentLine] = useState(0);
   const [opacity, setOpacity] = useState(0);
 
@@ -31,8 +34,9 @@ export default function NPCDialogue({ lines, onComplete }: NPCDialogueProps) {
       className="fixed inset-0 bg-background/70 z-50 flex items-end justify-center pb-20 cursor-pointer"
       onClick={handleClick}
     >
+      <DialogueParticles element={zone} intensity={0.5} />
       <div
-        className="border px-8 py-5 max-w-lg w-full mx-4 bg-card transition-opacity duration-300"
+        className="border px-8 py-5 max-w-lg w-full mx-4 bg-card/90 backdrop-blur-sm transition-opacity duration-300 z-50"
         style={{
           opacity,
           borderColor: line.color || 'hsl(var(--primary))',
