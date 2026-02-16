@@ -1,6 +1,7 @@
 import { BOSS_DIALOGUES } from '../game/lore';
 import { ElementType, ELEMENT_COLORS } from '../game/types';
 import { useState, useEffect } from 'react';
+import DialogueParticles from './DialogueParticles';
 
 interface BossDialogueProps {
   zone: ElementType;
@@ -29,13 +30,13 @@ export default function BossDialogue({ zone, onComplete }: BossDialogueProps) {
 
   return (
     <div className="fixed inset-0 bg-background/80 z-50 flex items-end justify-center pb-24">
+      <DialogueParticles element={zone} intensity={1.5} />
       <div
-        className="border px-8 py-4 max-w-lg text-center transition-opacity duration-300"
+        className="border px-8 py-4 max-w-lg text-center transition-opacity duration-300 z-50 bg-card/90 backdrop-blur-sm"
         style={{
           opacity,
           borderColor: ELEMENT_COLORS[zone],
           boxShadow: `0 0 20px ${ELEMENT_COLORS[zone]}40`,
-          backgroundColor: 'hsl(var(--card))',
         }}
       >
         <p className="text-lg font-display" style={{ color: ELEMENT_COLORS[zone] }}>

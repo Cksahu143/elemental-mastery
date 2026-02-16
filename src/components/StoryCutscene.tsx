@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import DialogueParticles from './DialogueParticles';
+import { ElementType } from '../game/types';
 
 interface CutsceneLine {
   speaker: string;
@@ -10,9 +12,10 @@ interface StoryCutsceneProps {
   lines: CutsceneLine[];
   title?: string;
   onComplete: () => void;
+  zone?: ElementType;
 }
 
-export default function StoryCutscene({ lines, title, onComplete }: StoryCutsceneProps) {
+export default function StoryCutscene({ lines, title, onComplete, zone = 'fire' }: StoryCutsceneProps) {
   const [currentLine, setCurrentLine] = useState(-1);
   const [opacity, setOpacity] = useState(0);
   const [titleVisible, setTitleVisible] = useState(!!title);
@@ -54,8 +57,10 @@ export default function StoryCutscene({ lines, title, onComplete }: StoryCutscen
       onClick={handleClick}
       style={{ background: 'radial-gradient(ellipse at center, hsl(var(--card)) 0%, hsl(var(--background)) 100%)' }}
     >
+      <DialogueParticles element={zone} intensity={1.2} />
+
       {titleVisible && (
-        <div className="text-center transition-opacity duration-500" style={{ opacity }}>
+        <div className="text-center transition-opacity duration-500 z-50" style={{ opacity }}>
           <h2 className="text-3xl font-display text-primary tracking-widest text-glow-fire mb-2">
             {title}
           </h2>
@@ -64,7 +69,7 @@ export default function StoryCutscene({ lines, title, onComplete }: StoryCutscen
       )}
 
       {line && (
-        <div className="max-w-xl w-full mx-4 flex flex-col items-center">
+        <div className="max-w-xl w-full mx-4 flex flex-col items-center z-50">
           {/* Character portrait area */}
           <div
             className="w-20 h-20 rounded-full border-2 mb-4 flex items-center justify-center text-3xl transition-opacity duration-300"
@@ -90,7 +95,7 @@ export default function StoryCutscene({ lines, title, onComplete }: StoryCutscen
 
           {/* Dialogue box */}
           <div
-            className="border px-8 py-5 w-full bg-card transition-opacity duration-300"
+            className="border px-8 py-5 w-full bg-card/90 backdrop-blur-sm transition-opacity duration-300"
             style={{
               opacity,
               borderColor: line.color,
