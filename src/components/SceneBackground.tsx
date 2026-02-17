@@ -1,6 +1,4 @@
-import { useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { ElementType } from '../game/types';
 
 const ZONE_CONFIGS: Record<ElementType, { baseColor: string; accentColor: string; fogColor: string; particleColor: string }> = {
@@ -10,67 +8,46 @@ const ZONE_CONFIGS: Record<ElementType, { baseColor: string; accentColor: string
   shadow: { baseColor: '#0a001a', accentColor: '#A855F7', fogColor: '#05000d', particleColor: '#C084FC' },
 };
 
-function FloatingParticles({ color, count = 200 }: { color: string; count?: number }) {
-  const meshRef = useRef<THREE.Points>(null);
-
-  const [positions, sizes] = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    const sz = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 20;
-      sz[i] = Math.random() * 3 + 1;
-    }
-    return [pos, sz];
-  }, [count]);
-
-  useFrame(({ clock }) => {
-    if (!meshRef.current) return;
-    const t = clock.getElapsedTime() * 0.15;
-    meshRef.current.rotation.y = t;
-    meshRef.current.rotation.x = Math.sin(t * 0.5) * 0.1;
-  });
-
-  return (
-    <points ref={meshRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-size" count={count} array={sizes} itemSize={1} />
-      </bufferGeometry>
-      <pointsMaterial color={color} size={0.08} transparent opacity={0.6} sizeAttenuation />
-    </points>
-  );
+function checkWebGLSupport(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(canvas.getContext('webgl') || canvas.getContext('webgl2') || canvas.getContext('experimental-webgl'));
+  } catch {
+    return false;
+  }
 }
 
-function RotatingRing({ color, radius, speed }: { color: string; radius: number; speed: number }) {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }) => {
-    if (!ref.current) return;
-    ref.current.rotation.x = clock.getElapsedTime() * speed;
-    ref.current.rotation.z = clock.getElapsedTime() * speed * 0.5;
-  });
-  return (
-    <mesh ref={ref}>
-      <torusGeometry args={[radius, 0.02, 16, 100]} />
-      <meshBasicMaterial color={color} transparent opacity={0.3} />
-    </mesh>
-  );
-}
-
-function SceneContent({ zone }: { zone: ElementType }) {
+// CSS-based fallback background with animated gradients
+function CSSFallbackBackground({ zone }: { zone: ElementType }) {
   const config = ZONE_CONFIGS[zone];
-  
   return (
-    <>
-      <fog attach="fog" args={[config.fogColor, 5, 25]} />
-      <ambientLight intensity={0.1} />
-      <pointLight position={[0, 5, 0]} color={config.accentColor} intensity={2} distance={20} />
-      <FloatingParticles color={config.particleColor} count={300} />
-      <RotatingRing color={config.accentColor} radius={3} speed={0.2} />
-      <RotatingRing color={config.accentColor} radius={5} speed={-0.1} />
-      <RotatingRing color={config.particleColor} radius={7} speed={0.05} />
-    </>
+    <div
+      className="fixed inset-0"
+      style={{
+        zIndex: -1,
+        background: `radial-gradient(ellipse at 30% 20%, ${config.accentColor}15 0%, transparent 50%),
+                      radial-gradient(ellipse at 70% 80%, ${config.particleColor}10 0%, transparent 50%),
+                      ${config.baseColor}`,
+      }}
+    >
+      {/* Animated floating dots via CSS */}
+      {Array.from({ length: 30 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full animate-pulse"
+          style={{
+            width: Math.random() * 4 + 2,
+            height: Math.random() * 4 + 2,
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            backgroundColor: config.particleColor,
+            opacity: Math.random() * 0.4 + 0.1,
+            animationDuration: `${Math.random() * 3 + 2}s`,
+            animationDelay: `${Math.random() * 2}s`,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -80,11 +57,25 @@ interface SceneBackgroundProps {
 }
 
 export default function SceneBackground({ zone, className = '' }: SceneBackgroundProps) {
-  return (
-    <div className={`fixed inset-0 ${className}`} style={{ zIndex: -1 }}>
-      <Canvas camera={{ position: [0, 0, 8], fov: 60 }} gl={{ antialias: false, alpha: true }}>
-        <SceneContent zone={zone} />
-      </Canvas>
-    </div>
-  );
+  const [webglSupported, setWebglSupported] = useState<boolean | null>(null);
+  const [WebGLScene, setWebGLScene] = useState<React.ComponentType<{ zone: ElementType }> | null>(null);
+
+  useEffect(() => {
+    const supported = checkWebGLSupport();
+    setWebglSupported(supported);
+    if (supported) {
+      // Dynamically import Three.js only if WebGL works
+      import('./SceneBackground3D').then(mod => {
+        setWebGLScene(() => mod.default);
+      }).catch(() => {
+        setWebglSupported(false);
+      });
+    }
+  }, []);
+
+  if (webglSupported === false || !WebGLScene) {
+    return <CSSFallbackBackground zone={zone} />;
+  }
+
+  return <WebGLScene zone={zone} />;
 }
