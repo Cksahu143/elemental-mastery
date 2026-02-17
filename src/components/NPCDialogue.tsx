@@ -28,6 +28,7 @@ export default function NPCDialogue({ lines, onComplete, zone = 'fire' }: NPCDia
   };
 
   const line = lines[currentLine];
+  if (!line) { onComplete(); return null; }
 
   return (
     <div
