@@ -9,7 +9,7 @@ function createEnemy(type: EnemyType, pos: Position, element: ElementType, isBos
     assassin: { hp: 15, speed: 3, damage: 15 },
     tank: { hp: 80, speed: 0.7, damage: 5 },
     miniboss: { hp: 150, speed: 1.2, damage: 18 },
-    boss: { hp: 900, speed: 1.2, damage: 30 },
+    boss: { hp: 1200, speed: 1.3, damage: 35 },
   };
 
   const stats = baseStats[type];
@@ -30,6 +30,9 @@ function createEnemy(type: EnemyType, pos: Position, element: ElementType, isBos
     stateTimer: 0,
     statusEffects: [],
     knockback: { x: 0, y: 0 },
+    isTired: false,
+    tiredTimer: 0,
+    summonCooldown: 0,
   };
 }
 

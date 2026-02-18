@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import DialogueParticles from './DialogueParticles';
+import CutsceneBackground from './CutsceneBackground';
 import { ElementType } from '../game/types';
 
 interface CutsceneLine {
@@ -55,8 +56,8 @@ export default function StoryCutscene({ lines, title, onComplete, zone = 'fire' 
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center cursor-pointer"
       onClick={handleClick}
-      style={{ background: 'radial-gradient(ellipse at center, hsl(var(--card)) 0%, hsl(var(--background)) 100%)' }}
     >
+      <CutsceneBackground zone={zone} intensity={1.5} />
       <DialogueParticles element={zone} intensity={1.2} />
 
       {titleVisible && (
@@ -70,7 +71,6 @@ export default function StoryCutscene({ lines, title, onComplete, zone = 'fire' 
 
       {line && (
         <div className="max-w-xl w-full mx-4 flex flex-col items-center z-50">
-          {/* Character portrait area */}
           <div
             className="w-20 h-20 rounded-full border-2 mb-4 flex items-center justify-center text-3xl transition-opacity duration-300"
             style={{
@@ -93,7 +93,6 @@ export default function StoryCutscene({ lines, title, onComplete, zone = 'fire' 
               : '👁️'}
           </div>
 
-          {/* Dialogue box */}
           <div
             className="border px-8 py-5 w-full bg-card/90 backdrop-blur-sm transition-opacity duration-300"
             style={{

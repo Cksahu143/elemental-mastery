@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import DialogueParticles from './DialogueParticles';
+import CutsceneBackground from './CutsceneBackground';
 import { ElementType } from '../game/types';
 
 interface NPCDialogueProps {
@@ -32,9 +33,10 @@ export default function NPCDialogue({ lines, onComplete, zone = 'fire' }: NPCDia
 
   return (
     <div
-      className="fixed inset-0 bg-background/70 z-50 flex items-end justify-center pb-20 cursor-pointer"
+      className="fixed inset-0 z-50 flex items-end justify-center pb-20 cursor-pointer"
       onClick={handleClick}
     >
+      <CutsceneBackground zone={zone} intensity={0.8} />
       <DialogueParticles element={zone} intensity={0.5} />
       <div
         className="border px-8 py-5 max-w-lg w-full mx-4 bg-card/90 backdrop-blur-sm transition-opacity duration-300 z-50"

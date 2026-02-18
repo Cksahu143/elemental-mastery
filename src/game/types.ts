@@ -58,6 +58,9 @@ export interface Enemy {
   stateTimer: number;
   statusEffects: StatusEffect[];
   knockback: Position;
+  isTired?: boolean;
+  tiredTimer?: number;
+  summonCooldown?: number;
 }
 
 export type EnemyType = 'melee' | 'ranged' | 'assassin' | 'tank' | 'miniboss' | 'boss';
