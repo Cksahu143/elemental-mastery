@@ -1,5 +1,5 @@
 import {
-  PlayerState, Enemy, Projectile, DamageNumber, Particle,
+  PlayerState, Enemy, EnemyType, Projectile, DamageNumber, Particle,
   GameRoom, Position, ElementType, TILE_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT,
   ELEMENT_COLORS, ELEMENT_COLORS_DARK, StatusEffect, SKILLS,
 } from './types';
@@ -319,10 +319,13 @@ export function update(dt: number) {
       // Hit enemies
       for (const enemy of room.enemies) {
         if (enemy.hp <= 0) continue;
+        // Boss is shielded while summoning (but not while tired)
+        if (enemy.isBoss && enemy.state === 'special') continue;
         const edist = dist(p.pos, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
         if (edist < p.radius + 12) {
           const isCrit = Math.random() < 0.15;
-          const dmg = Math.floor(p.damage * (isCrit ? 2 : 1));
+          const tiredMultiplier = enemy.isTired ? 2.5 : 1;
+          const dmg = Math.floor(p.damage * (isCrit ? 2 : 1) * tiredMultiplier);
           enemy.hp -= dmg;
           enemy.knockback = { x: p.vel.x * 0.05, y: p.vel.y * 0.05 };
           addDamageNumber(enemy.pos, dmg, p.element, isCrit);
@@ -505,9 +508,98 @@ function updateEnemy(enemy: Enemy, dt: number) {
     }
   }
 
-  // Boss special attacks — 4 phases
+  // Boss special attacks — 4 phases + summon mechanic
   if (enemy.isBoss) {
     const hpPct = enemy.hp / enemy.maxHp;
+
+    // Tired state — boss takes 2x damage and can't attack
+    if (enemy.isTired) {
+      enemy.tiredTimer = (enemy.tiredTimer || 0) - dt;
+      if ((enemy.tiredTimer || 0) <= 0) {
+        enemy.isTired = false;
+        enemy.tiredTimer = 0;
+      }
+      // Boss just idles while tired — skip all attacks
+      return;
+    }
+
+    // Summon cooldown
+    enemy.summonCooldown = (enemy.summonCooldown || 0) - dt;
+
+    // Summon phase: spawn minions at 60% and 30% HP, or periodically
+    const shouldSummon = (
+      (hpPct < 0.6 && enemy.phase < 3 && (enemy.summonCooldown || 0) <= 0) ||
+      (hpPct < 0.3 && enemy.phase >= 3 && (enemy.summonCooldown || 0) <= 0)
+    );
+
+    if (shouldSummon) {
+      enemy.summonCooldown = 15; // cooldown before next summon
+      SFX.phaseTransition();
+      screenShake = 10;
+      
+      // Spawn minions around the boss
+      const minionCount = 3 + enemy.phase;
+      for (let i = 0; i < minionCount; i++) {
+        const angle = (i / minionCount) * Math.PI * 2;
+        const spawnDist = 80 + Math.random() * 40;
+        const mx = enemy.pos.x + Math.cos(angle) * spawnDist;
+        const my = enemy.pos.y + Math.sin(angle) * spawnDist;
+        const minionType: EnemyType = i % 3 === 0 ? 'ranged' : i % 3 === 1 ? 'assassin' : 'melee';
+        const minion: Enemy = {
+          id: `enemy_summon_${projIdCounter++}`,
+          type: minionType,
+          pos: { x: mx, y: my },
+          hp: 25 + floor * 5,
+          maxHp: 25 + floor * 5,
+          speed: 2,
+          damage: 8 + floor * 2,
+          attackCooldown: minionType === 'ranged' ? 1.2 : 0.8,
+          attackTimer: 0,
+          element: enemy.element,
+          isBoss: false,
+          phase: 1,
+          state: 'chase',
+          stateTimer: 0,
+          statusEffects: [],
+          knockback: { x: 0, y: 0 },
+        };
+        room.enemies.push(minion);
+        // Spawn particles
+        for (let p = 0; p < 6; p++) {
+          particles.push({
+            x: mx + 12, y: my + 12,
+            vx: (Math.random() - 0.5) * 100, vy: (Math.random() - 0.5) * 100,
+            life: 0.4, maxLife: 0.4,
+            color: ELEMENT_COLORS[enemy.element], size: 3,
+          });
+        }
+      }
+
+      // Make boss invulnerable while minions are alive — mark as summoning
+      enemy.state = 'special';
+    }
+
+    // Check if summoned minions are all dead — boss gets tired
+    if (enemy.state === 'special') {
+      const summonsAlive = room.enemies.some(e => !e.isBoss && e.hp > 0);
+      if (!summonsAlive) {
+        enemy.state = 'chase';
+        enemy.isTired = true;
+        enemy.tiredTimer = 4; // 4 seconds of vulnerability
+        screenShake = 8;
+        SFX.phaseTransition();
+        // Visual feedback — boss stunned particles
+        for (let i = 0; i < 15; i++) {
+          particles.push({
+            x: enemy.pos.x + 12, y: enemy.pos.y - 10,
+            vx: (Math.random() - 0.5) * 60, vy: -20 - Math.random() * 40,
+            life: 0.6, maxLife: 0.6,
+            color: '#FFD700', size: 3,
+          });
+        }
+      }
+      return; // Don't attack while summoning
+    }
     
     // Phase 2 at 75%
     if (hpPct < 0.75 && enemy.phase === 1) {
@@ -550,7 +642,6 @@ function updateEnemy(enemy: Enemy, dt: number) {
       for (let y = 1; y < room.height - 1; y++) {
         for (let x = 1; x < room.width - 1; x++) {
           if (room.tiles[y][x] === 2) {
-            // Spread hazards to adjacent tiles
             if (x + 1 < room.width - 1 && room.tiles[y][x + 1] === 0 && Math.random() < 0.4) room.tiles[y][x + 1] = 2;
             if (y + 1 < room.height - 1 && room.tiles[y + 1][x] === 0 && Math.random() < 0.4) room.tiles[y + 1][x] = 2;
           }
@@ -840,6 +931,36 @@ export function render(ctx: CanvasRenderingContext2D) {
           ctx.fillRect(enemy.pos.x - 2, enemy.pos.y - 2, 28, 28);
         }
       }
+      ctx.globalAlpha = 1;
+    }
+
+    // Tired boss indicator
+    if (enemy.isBoss && enemy.isTired) {
+      ctx.globalAlpha = 0.6 + Math.sin(gameTime * 8) * 0.3;
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 12px Rajdhani';
+      ctx.textAlign = 'center';
+      ctx.fillText('💫 TIRED!', enemy.pos.x + 12, enemy.pos.y - 16);
+      // Pulsing gold outline
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(enemy.pos.x - 6, enemy.pos.y - 6, size + 12, size + 12);
+      ctx.globalAlpha = 1;
+    }
+
+    // Summoning indicator
+    if (enemy.isBoss && enemy.state === 'special') {
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = ELEMENT_COLORS[enemy.element];
+      ctx.font = 'bold 10px Rajdhani';
+      ctx.textAlign = 'center';
+      ctx.fillText('SUMMONING...', enemy.pos.x + 12, enemy.pos.y - 16);
+      // Shield effect
+      ctx.strokeStyle = ELEMENT_COLORS[enemy.element];
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(enemy.pos.x + 12, enemy.pos.y + 12, 24 + Math.sin(gameTime * 4) * 4, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.globalAlpha = 1;
     }
   }
