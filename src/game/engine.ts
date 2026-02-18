@@ -1254,5 +1254,238 @@ function fireSkill(skillId: string) {
       }
       break;
     }
+    case 'fire_shield': {
+      // Ring of fire projectiles orbiting player
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const ox = Math.cos(angle) * 50;
+        const oy = Math.sin(angle) * 50;
+        projectiles.push({
+          id: `proj_${projIdCounter++}`,
+          pos: { x: px + ox, y: py + oy },
+          vel: { x: Math.cos(angle + Math.PI / 2) * 60, y: Math.sin(angle + Math.PI / 2) * 60 },
+          damage: baseDmg * 0.4,
+          element: 'fire', fromPlayer: true, lifetime: 2.0, radius: 8,
+        });
+      }
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        particles.push({
+          x: px + Math.cos(angle) * 50, y: py + Math.sin(angle) * 50,
+          vx: Math.cos(angle) * 30, vy: Math.sin(angle) * 30,
+          life: 1.0, maxLife: 1.0, color: '#F97316', size: 3,
+        });
+      }
+      break;
+    }
+    case 'inferno_blast': {
+      // Massive AoE explosion
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist({ x: px, y: py }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+        if (d < 200) {
+          const dmg = baseDmg * 2.0 * (1 - d / 200);
+          enemy.hp -= dmg;
+          applyElementEffect(enemy, 'fire');
+          applyElementEffect(enemy, 'fire');
+          addDamageNumber(enemy.pos, Math.floor(dmg), 'fire', dmg > baseDmg * 1.5);
+          enemy.knockback.x += (enemy.pos.x - px) * 0.3;
+          enemy.knockback.y += (enemy.pos.y - py) * 0.3;
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+        }
+      }
+      screenShake = 15;
+      for (let i = 0; i < 30; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 80 + Math.random() * 200;
+        particles.push({
+          x: px, y: py,
+          vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+          life: 0.8, maxLife: 0.8, color: i % 2 === 0 ? '#F97316' : '#ff4400', size: 3 + Math.random() * 5,
+        });
+      }
+      break;
+    }
+    case 'blizzard': {
+      // Spawn projectiles over time in an area around cursor
+      const tx = mousePos.x + camera.x;
+      const ty = mousePos.y + camera.y;
+      for (let t = 0; t < 8; t++) {
+        setTimeout(() => {
+          const sx = tx + (Math.random() - 0.5) * 140;
+          const sy = ty + (Math.random() - 0.5) * 140;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: sx, y: sy - 40 },
+            vel: { x: (Math.random() - 0.5) * 40, y: 60 + Math.random() * 40 },
+            damage: baseDmg * 0.5,
+            element: 'ice', fromPlayer: true, lifetime: 0.8, radius: 8,
+          });
+          particles.push({
+            x: sx, y: sy,
+            vx: (Math.random() - 0.5) * 60, vy: -20 - Math.random() * 30,
+            life: 0.6, maxLife: 0.6, color: '#38BDF8', size: 2 + Math.random() * 3,
+          });
+        }, t * 150);
+      }
+      break;
+    }
+    case 'glacial_spike': {
+      // Fast piercing projectile that shatters
+      const angle = Math.atan2(fy, fx);
+      projectiles.push({
+        id: `proj_${projIdCounter++}`,
+        pos: { x: px, y: py },
+        vel: { x: Math.cos(angle) * 400, y: Math.sin(angle) * 400 },
+        damage: baseDmg * 2.0,
+        element: 'ice', fromPlayer: true, lifetime: 0.8, radius: 6,
+      });
+      // Shatter fragments after delay
+      setTimeout(() => {
+        const sx = px + Math.cos(angle) * 300;
+        const sy = py + Math.sin(angle) * 300;
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: sx, y: sy },
+            vel: { x: Math.cos(a) * 150, y: Math.sin(a) * 150 },
+            damage: baseDmg * 0.6,
+            element: 'ice', fromPlayer: true, lifetime: 0.4, radius: 5,
+          });
+        }
+        screenShake = 4;
+      }, 500);
+      break;
+    }
+    case 'ball_lightning': {
+      // Slow-moving orb that zaps nearby enemies
+      const angle = Math.atan2(fy, fx);
+      const orbX = px;
+      const orbY = py;
+      for (let t = 0; t < 10; t++) {
+        setTimeout(() => {
+          const cx = orbX + Math.cos(angle) * (t * 25 + 30);
+          const cy = orbY + Math.sin(angle) * (t * 25 + 30);
+          // Zap nearby enemies
+          for (const enemy of room.enemies) {
+            if (enemy.hp <= 0) continue;
+            const d = dist({ x: cx, y: cy }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+            if (d < 80) {
+              enemy.hp -= baseDmg * 0.3;
+              addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.3), 'lightning', false);
+              applyElementEffect(enemy, 'lightning');
+              if (enemy.hp <= 0) onEnemyKill(enemy);
+            }
+          }
+          particles.push({
+            x: cx, y: cy,
+            vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60,
+            life: 0.3, maxLife: 0.3, color: '#EAB308', size: 6,
+          });
+        }, t * 200);
+      }
+      break;
+    }
+    case 'thunderstorm': {
+      // Random lightning bolts across the room
+      for (let t = 0; t < 10; t++) {
+        setTimeout(() => {
+          const sx = px + (Math.random() - 0.5) * 400;
+          const sy = py + (Math.random() - 0.5) * 400;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: sx, y: sy },
+            vel: { x: 0, y: 0 },
+            damage: baseDmg * 0.9,
+            element: 'lightning', fromPlayer: true, lifetime: 0.2, radius: 16,
+          });
+          screenShake = 4;
+          for (let i = 0; i < 5; i++) {
+            particles.push({
+              x: sx, y: sy,
+              vx: (Math.random() - 0.5) * 150, vy: -100 - Math.random() * 100,
+              life: 0.3, maxLife: 0.3, color: '#EAB308', size: 2 + Math.random() * 3,
+            });
+          }
+        }, t * 150);
+      }
+      break;
+    }
+    case 'shadow_step': {
+      // Teleport to cursor, damage at both locations
+      const tx = mousePos.x + camera.x;
+      const ty = mousePos.y + camera.y;
+      // Damage at origin
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist({ x: px, y: py }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+        if (d < 80) {
+          enemy.hp -= baseDmg * 0.6;
+          addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.6), 'shadow', false);
+          applyElementEffect(enemy, 'shadow');
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+        }
+      }
+      // Teleport
+      player.pos.x = tx - 12;
+      player.pos.y = ty - 12;
+      player.invincible = 0.5;
+      // Damage at destination
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist({ x: tx, y: ty }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+        if (d < 80) {
+          enemy.hp -= baseDmg * 0.6;
+          addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.6), 'shadow', false);
+          applyElementEffect(enemy, 'shadow');
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+        }
+      }
+      screenShake = 5;
+      for (let i = 0; i < 10; i++) {
+        particles.push({
+          x: px, y: py,
+          vx: (Math.random() - 0.5) * 100, vy: (Math.random() - 0.5) * 100,
+          life: 0.4, maxLife: 0.4, color: '#A855F7', size: 3,
+        });
+        particles.push({
+          x: tx, y: ty,
+          vx: (Math.random() - 0.5) * 100, vy: (Math.random() - 0.5) * 100,
+          life: 0.4, maxLife: 0.4, color: '#A855F7', size: 3,
+        });
+      }
+      break;
+    }
+    case 'soul_drain': {
+      // Drain life from all nearby enemies
+      let totalDrain = 0;
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist({ x: px, y: py }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+        if (d < 140) {
+          const dmg = baseDmg * 0.7;
+          enemy.hp -= dmg;
+          totalDrain += dmg * 0.4;
+          addDamageNumber(enemy.pos, Math.floor(dmg), 'shadow', false);
+          applyElementEffect(enemy, 'shadow');
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+          // Drain particles from enemy to player
+          for (let i = 0; i < 3; i++) {
+            particles.push({
+              x: enemy.pos.x + 12, y: enemy.pos.y + 12,
+              vx: (px - enemy.pos.x) * 2, vy: (py - enemy.pos.y) * 2,
+              life: 0.4, maxLife: 0.4, color: '#22c55e', size: 3,
+            });
+          }
+        }
+      }
+      // Heal player
+      player.hp = Math.min(player.maxHp, player.hp + totalDrain);
+      if (totalDrain > 0) {
+        addDamageNumber(player.pos, Math.floor(totalDrain), 'shadow', true);
+      }
+      break;
+    }
   }
 }
