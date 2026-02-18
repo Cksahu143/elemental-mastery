@@ -163,17 +163,25 @@ export const SKILLS: Record<ElementType, { name: string; id: string; description
   fire: [
     { name: 'Flame Wave', id: 'flame_wave', description: 'Release a wave of fire in front of you', manaCost: 20, unlockLevel: 2 },
     { name: 'Meteor Drop', id: 'meteor_drop', description: 'Call down a meteor at cursor position', manaCost: 40, unlockLevel: 5 },
+    { name: 'Fire Shield', id: 'fire_shield', description: 'Surround yourself with a ring of fire that damages nearby enemies', manaCost: 30, unlockLevel: 7 },
+    { name: 'Inferno Blast', id: 'inferno_blast', description: 'Charge up and release a massive explosion around you', manaCost: 60, unlockLevel: 10 },
   ],
   ice: [
     { name: 'Frost Wall', id: 'frost_wall', description: 'Create a wall of ice that slows enemies', manaCost: 25, unlockLevel: 2 },
     { name: 'Absolute Zero', id: 'absolute_zero', description: 'Freeze all nearby enemies', manaCost: 50, unlockLevel: 5 },
+    { name: 'Blizzard', id: 'blizzard', description: 'Summon a blizzard that damages and slows enemies over time', manaCost: 35, unlockLevel: 7 },
+    { name: 'Glacial Spike', id: 'glacial_spike', description: 'Launch a piercing ice spike that shatters on impact', manaCost: 55, unlockLevel: 10 },
   ],
   lightning: [
     { name: 'Thunder Dash', id: 'thunder_dash', description: 'Dash with lightning, damaging enemies', manaCost: 15, unlockLevel: 2 },
     { name: 'Storm Field', id: 'storm_field', description: 'Create a field of lightning strikes', manaCost: 45, unlockLevel: 5 },
+    { name: 'Ball Lightning', id: 'ball_lightning', description: 'Launch a slow orb that zaps nearby enemies repeatedly', manaCost: 35, unlockLevel: 7 },
+    { name: 'Thunderstorm', id: 'thunderstorm', description: 'Call down a barrage of lightning bolts across the room', manaCost: 65, unlockLevel: 10 },
   ],
   shadow: [
     { name: 'Shadow Clone', id: 'shadow_clone', description: 'Create a clone that fights for you', manaCost: 30, unlockLevel: 2 },
     { name: 'Void Rift', id: 'void_rift', description: 'Open a rift that pulls and damages enemies', manaCost: 50, unlockLevel: 5 },
+    { name: 'Shadow Step', id: 'shadow_step', description: 'Teleport to cursor position, damaging enemies at both locations', manaCost: 25, unlockLevel: 7 },
+    { name: 'Soul Drain', id: 'soul_drain', description: 'Drain life from all nearby enemies, healing yourself', manaCost: 55, unlockLevel: 10 },
   ],
 };
