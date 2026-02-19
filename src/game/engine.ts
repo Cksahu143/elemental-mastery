@@ -327,7 +327,9 @@ export function update(dt: number) {
           const tiredMultiplier = enemy.isTired ? 2.5 : 1;
           const dmg = Math.floor(p.damage * (isCrit ? 2 : 1) * tiredMultiplier);
           enemy.hp -= dmg;
-          enemy.knockback = { x: p.vel.x * 0.05, y: p.vel.y * 0.05 };
+          // Knockback scaling: bigger enemies resist more
+          const kbScale = enemy.isBoss ? 0.005 : enemy.type === 'tank' ? 0.015 : enemy.type === 'miniboss' ? 0.02 : 0.05;
+          enemy.knockback = { x: p.vel.x * kbScale, y: p.vel.y * kbScale };
           addDamageNumber(enemy.pos, dmg, p.element, isCrit);
           applyElementEffect(enemy, p.element);
           screenShake = isCrit ? 6 : 3;
@@ -642,23 +644,112 @@ function updateEnemy(enemy: Enemy, dt: number) {
       }
     }
     
-    // Phase 3 at 50% — spread shots and arena hazards expand
+    // Phase 3 at 50% — unique elemental spell per boss
     if (hpPct < 0.5 && enemy.phase === 2) {
       enemy.phase = 3;
       enemy.damage = Math.floor(enemy.damage * 1.2);
       enemy.speed *= 1.15;
       screenShake = 12;
       SFX.phaseTransition();
-      // Double radial burst
-      for (let a = 0; a < 16; a++) {
-        const angle = (a / 16) * Math.PI * 2;
-        projectiles.push({
-          id: `proj_${projIdCounter++}`,
-          pos: { x: enemy.pos.x + 12, y: enemy.pos.y + 12 },
-          vel: { x: Math.cos(angle) * 120, y: Math.sin(angle) * 120 },
-          damage: enemy.damage, element: enemy.element, fromPlayer: false, lifetime: 2.5, radius: 7,
-        });
+
+      // Each boss uses a signature spell
+      if (enemy.element === 'fire') {
+        // Fire Rain — cascading projectiles from above
+        for (let i = 0; i < 12; i++) {
+          const rx = (2 + Math.random() * (room.width - 4)) * TILE_SIZE;
+          setTimeout(() => {
+            projectiles.push({
+              id: `proj_${projIdCounter++}`,
+              pos: { x: rx, y: 2 * TILE_SIZE },
+              vel: { x: (Math.random() - 0.5) * 30, y: 200 },
+              damage: enemy.damage * 1.3, element: 'fire', fromPlayer: false, lifetime: 3, radius: 8,
+            });
+            for (let p = 0; p < 4; p++) {
+              particles.push({
+                x: rx, y: 2 * TILE_SIZE,
+                vx: (Math.random() - 0.5) * 60, vy: 30 + Math.random() * 40,
+                life: 0.5, maxLife: 0.5, color: '#FF4500', size: 4,
+              });
+            }
+          }, i * 150);
+        }
+      } else if (enemy.element === 'ice') {
+        // Absolute Zero — expanding freeze rings from boss
+        for (let ring = 0; ring < 3; ring++) {
+          setTimeout(() => {
+            const count = 12 + ring * 4;
+            for (let a = 0; a < count; a++) {
+              const angle = (a / count) * Math.PI * 2;
+              const speed = 80 + ring * 40;
+              projectiles.push({
+                id: `proj_${projIdCounter++}`,
+                pos: { x: enemy.pos.x + 12, y: enemy.pos.y + 12 },
+                vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+                damage: enemy.damage * 0.8, element: 'ice', fromPlayer: false, lifetime: 3, radius: 6,
+              });
+            }
+          }, ring * 400);
+        }
+      } else if (enemy.element === 'lightning') {
+        // Thunderstorm — random lightning strikes across the room
+        for (let i = 0; i < 15; i++) {
+          const lx = (2 + Math.random() * (room.width - 4)) * TILE_SIZE;
+          const ly = (2 + Math.random() * (room.height - 4)) * TILE_SIZE;
+          setTimeout(() => {
+            for (let p = 0; p < 6; p++) {
+              particles.push({
+                x: lx, y: ly,
+                vx: (Math.random() - 0.5) * 80, vy: -60 - Math.random() * 80,
+                life: 0.4, maxLife: 0.4, color: '#FACC15', size: 5,
+              });
+            }
+            projectiles.push({
+              id: `proj_${projIdCounter++}`,
+              pos: { x: lx, y: ly },
+              vel: { x: 0, y: 0 },
+              damage: enemy.damage * 1.5, element: 'lightning', fromPlayer: false, lifetime: 0.5, radius: 20,
+            });
+            screenShake = 5;
+          }, i * 200);
+        }
+      } else if (enemy.element === 'shadow') {
+        // Void Collapse — pull player toward boss then explode
+        const pullDuration = 2000;
+        const enemyRef = enemy;
+        const pullInterval = setInterval(() => {
+          const dx = enemyRef.pos.x - player.pos.x;
+          const dy = enemyRef.pos.y - player.pos.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d > 10) {
+            player.pos.x += (dx / d) * 2;
+            player.pos.y += (dy / d) * 2;
+          }
+          for (let p = 0; p < 3; p++) {
+            const angle = Math.random() * Math.PI * 2;
+            const r = 80 + Math.random() * 60;
+            particles.push({
+              x: enemyRef.pos.x + Math.cos(angle) * r,
+              y: enemyRef.pos.y + Math.sin(angle) * r,
+              vx: -Math.cos(angle) * 100, vy: -Math.sin(angle) * 100,
+              life: 0.4, maxLife: 0.4, color: '#A855F7', size: 3,
+            });
+          }
+        }, 50);
+        setTimeout(() => {
+          clearInterval(pullInterval);
+          for (let a = 0; a < 20; a++) {
+            const angle = (a / 20) * Math.PI * 2;
+            projectiles.push({
+              id: `proj_${projIdCounter++}`,
+              pos: { x: enemyRef.pos.x + 12, y: enemyRef.pos.y + 12 },
+              vel: { x: Math.cos(angle) * 160, y: Math.sin(angle) * 160 },
+              damage: enemyRef.damage * 1.4, element: 'shadow', fromPlayer: false, lifetime: 2, radius: 8,
+            });
+          }
+          screenShake = 15;
+        }, pullDuration);
       }
+
       // Expand arena hazards
       for (let y = 1; y < room.height - 1; y++) {
         for (let x = 1; x < room.width - 1; x++) {
@@ -777,7 +868,7 @@ function onEnemyKill(enemy: Enemy) {
   while (player.xp >= player.xpToNext) {
     player.xp -= player.xpToNext;
     player.level++;
-    player.xpToNext = Math.floor(player.xpToNext * (player.level >= 10 ? 1.1 : 1.25));
+    player.xpToNext = Math.floor(player.xpToNext * (player.level >= 10 ? 1.05 : 1.2));
     player.statPoints += 3;
     player.hp = player.maxHp;
     player.mana = player.maxMana;

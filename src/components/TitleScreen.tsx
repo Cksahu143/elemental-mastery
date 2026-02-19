@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { INTRO_TEXT } from '../game/lore';
+import CutsceneBackground from './CutsceneBackground';
 
 interface TitleScreenProps {
   onNewGame: () => void;
@@ -50,20 +51,25 @@ export default function TitleScreen({ onNewGame, onContinue, hasSave }: TitleScr
     setPhase('title');
   }, []);
 
+  // Cycle through element visuals during intro
+  const introElements: ('fire' | 'ice' | 'lightning' | 'shadow')[] = ['fire', 'ice', 'lightning', 'shadow'];
+  const introElement = introElements[Math.min(introLine, introElements.length - 1) % introElements.length];
+
   if (phase === 'intro') {
     return (
       <div
-        className="fixed inset-0 flex items-center justify-center bg-background cursor-pointer"
+        className="fixed inset-0 flex items-center justify-center cursor-pointer"
         onClick={skipIntro}
       >
-        <div className="text-center max-w-lg px-8">
+        <CutsceneBackground zone={introElement} intensity={1.5} />
+        <div className="text-center max-w-lg px-8 z-10">
           <p
             className="text-xl font-display text-foreground transition-opacity duration-500"
             style={{ opacity: lineOpacity }}
           >
             {INTRO_TEXT[introLine]}
           </p>
-          <p className="text-muted-foreground text-sm mt-12 animate-pulse-glow">
+          <p className="text-muted-foreground text-sm mt-12 animate-pulse">
             Click to skip
           </p>
         </div>
