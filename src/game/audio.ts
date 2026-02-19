@@ -1,8 +1,9 @@
-// Web Audio API Sound System
+// Web Audio API Sound System — Rich Procedural Music
 let audioCtx: AudioContext | null = null;
 
 function getCtx(): AudioContext {
   if (!audioCtx) audioCtx = new AudioContext();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
@@ -33,6 +34,76 @@ function playNoise(duration: number, vol = 0.1) {
   gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
   src.connect(gain).connect(ctx.destination);
   src.start();
+}
+
+// Filtered noise for better percussion
+function playFilteredNoise(duration: number, vol: number, freq: number, type: BiquadFilterType = 'highpass') {
+  const ctx = getCtx();
+  const bufferSize = ctx.sampleRate * duration;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = type;
+  filter.frequency.value = freq;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(vol, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  src.connect(filter).connect(gain).connect(ctx.destination);
+  src.start();
+}
+
+// Play a note with attack-sustain-release envelope
+function playNote(freq: number, duration: number, type: OscillatorType, vol: number, attack = 0.01, release = 0.1) {
+  const ctx = getCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + attack);
+  gain.gain.setValueAtTime(vol, ctx.currentTime + duration - release);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+
+// Kick drum
+function playKick() {
+  const ctx = getCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(150, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.15);
+  gain.gain.setValueAtTime(0.25, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.2);
+}
+
+// Snare
+function playSnare() {
+  playFilteredNoise(0.1, 0.12, 2000, 'highpass');
+  const ctx = getCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = 200;
+  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.08);
+}
+
+// Hi-hat
+function playHihat(open = false) {
+  playFilteredNoise(open ? 0.12 : 0.04, open ? 0.06 : 0.04, 6000, 'highpass');
 }
 
 export const SFX = {
@@ -106,62 +177,185 @@ export const SFX = {
   },
 };
 
-// Ambient music system
-let ambientInterval: number | null = null;
+// ─── Ambient music system ───
+let ambientIntervals: number[] = [];
 let currentZone: string | null = null;
 
-const ZONE_SCALES: Record<string, number[]> = {
-  fire: [220, 261, 293, 349, 392, 440],
-  ice: [261, 311, 349, 415, 466, 523],
-  lightning: [329, 392, 440, 523, 587, 659],
-  shadow: [196, 233, 261, 311, 349, 392],
+interface ZoneAmbience {
+  scale: number[];
+  droneFreqs: number[];
+  tempo: number;         // ms per "pulse"
+  type: OscillatorType;
+  droneType: OscillatorType;
+  melodyVol: number;
+  droneVol: number;
+}
+
+const ZONE_AMBIENCE: Record<string, ZoneAmbience> = {
+  fire: {
+    scale: [220, 261, 293, 349, 392, 440, 523],
+    droneFreqs: [110, 55],
+    tempo: 3000,
+    type: 'triangle',
+    droneType: 'sawtooth',
+    melodyVol: 0.035,
+    droneVol: 0.02,
+  },
+  ice: {
+    scale: [523, 587, 659, 784, 880, 1047],
+    droneFreqs: [131, 196],
+    tempo: 4000,
+    type: 'sine',
+    droneType: 'sine',
+    melodyVol: 0.025,
+    droneVol: 0.015,
+  },
+  lightning: {
+    scale: [329, 392, 440, 523, 587, 659, 784],
+    droneFreqs: [165, 82],
+    tempo: 2500,
+    type: 'square',
+    droneType: 'triangle',
+    melodyVol: 0.025,
+    droneVol: 0.02,
+  },
+  shadow: {
+    scale: [196, 233, 261, 293, 311, 349, 392],
+    droneFreqs: [65, 98],
+    tempo: 3500,
+    type: 'sine',
+    droneType: 'sawtooth',
+    melodyVol: 0.03,
+    droneVol: 0.025,
+  },
 };
 
 export function startAmbientMusic(zone: string) {
   if (currentZone === zone) return;
   stopAmbientMusic();
   currentZone = zone;
-  const scale = ZONE_SCALES[zone] || ZONE_SCALES.fire;
-  
-  ambientInterval = window.setInterval(() => {
-    const note = scale[Math.floor(Math.random() * scale.length)];
-    const type: OscillatorType = Math.random() > 0.5 ? 'sine' : 'triangle';
-    playTone(note, 1.5 + Math.random() * 2, type, 0.03 + Math.random() * 0.02);
-  }, 2000 + Math.random() * 3000);
+  const config = ZONE_AMBIENCE[zone] || ZONE_AMBIENCE.fire;
+
+  // Drone layer — slow evolving pads
+  const droneId = window.setInterval(() => {
+    const freq = config.droneFreqs[Math.floor(Math.random() * config.droneFreqs.length)];
+    playNote(freq, 4, config.droneType, config.droneVol, 0.5, 1.5);
+    // Slight detuned second voice for width
+    playNote(freq * 1.002, 4, config.droneType, config.droneVol * 0.6, 0.8, 1.5);
+  }, 4000);
+  ambientIntervals.push(droneId);
+
+  // Melody layer — sparse, atmospheric notes
+  const melodyId = window.setInterval(() => {
+    if (Math.random() < 0.6) {
+      const note = config.scale[Math.floor(Math.random() * config.scale.length)];
+      playNote(note, 1.5 + Math.random() * 2, config.type, config.melodyVol, 0.1, 0.5);
+    }
+    // Occasional second note for harmony
+    if (Math.random() < 0.25) {
+      const note2 = config.scale[Math.floor(Math.random() * config.scale.length)];
+      setTimeout(() => playNote(note2, 1 + Math.random(), config.type, config.melodyVol * 0.7, 0.2, 0.4), 400);
+    }
+  }, config.tempo);
+  ambientIntervals.push(melodyId);
+
+  // Texture layer — zone-specific atmospheric sounds
+  const textureId = window.setInterval(() => {
+    if (zone === 'fire') {
+      // Crackling
+      if (Math.random() < 0.4) playFilteredNoise(0.15, 0.02, 3000, 'highpass');
+    } else if (zone === 'ice') {
+      // Crystalline chimes
+      if (Math.random() < 0.3) {
+        const chime = config.scale[Math.floor(Math.random() * 3) + 3];
+        playNote(chime * 2, 0.8, 'sine', 0.015, 0.01, 0.5);
+      }
+    } else if (zone === 'lightning') {
+      // Distant thunder rumble
+      if (Math.random() < 0.15) {
+        playTone(40 + Math.random() * 30, 0.6, 'sawtooth', 0.03);
+      }
+    } else if (zone === 'shadow') {
+      // Eerie whispers (filtered noise)
+      if (Math.random() < 0.2) {
+        playFilteredNoise(0.3, 0.015, 800, 'bandpass');
+      }
+    }
+  }, 2000);
+  ambientIntervals.push(textureId);
 }
 
 export function stopAmbientMusic() {
-  if (ambientInterval !== null) {
-    clearInterval(ambientInterval);
-    ambientInterval = null;
-    currentZone = null;
-  }
+  ambientIntervals.forEach(id => clearInterval(id));
+  ambientIntervals = [];
+  currentZone = null;
 }
 
-// Boss music system — unique per zone
-let bossInterval: number | null = null;
+// ─── Boss music system — intense, zone-specific tracks ───
+let bossIntervals: number[] = [];
 let currentBossZone: string | null = null;
 
-const BOSS_SCALES: Record<string, { notes: number[]; bassNotes: number[]; tempo: number }> = {
+interface BossTrack {
+  bpm: number;
+  bassPattern: number[];   // scale degrees
+  melodyPattern: number[]; // scale degrees, -1 = rest
+  scale: number[];         // actual frequencies
+  bassType: OscillatorType;
+  leadType: OscillatorType;
+  bassVol: number;
+  leadVol: number;
+  drumIntensity: number;   // 0-1
+  flavor: 'aggressive' | 'ominous' | 'frantic' | 'dark';
+}
+
+const BOSS_TRACKS: Record<string, BossTrack> = {
   fire: {
-    notes: [440, 554, 659, 880, 1108],
-    bassNotes: [110, 138, 165, 220],
-    tempo: 280,
+    bpm: 155,
+    scale: [110, 130.8, 146.8, 164.8, 196, 220, 261.6, 293.7, 329.6, 392, 440],
+    bassPattern: [0, 0, 3, 3, 5, 5, 3, 4],
+    melodyPattern: [7, -1, 9, 8, 7, -1, 6, 5, 7, -1, 10, 9, 8, 7, 6, 5],
+    bassType: 'sawtooth',
+    leadType: 'square',
+    bassVol: 0.09,
+    leadVol: 0.05,
+    drumIntensity: 0.9,
+    flavor: 'aggressive',
   },
   ice: {
-    notes: [523, 622, 784, 932, 1047],
-    bassNotes: [131, 165, 196, 261],
-    tempo: 400,
+    bpm: 130,
+    scale: [130.8, 146.8, 155.6, 174.6, 196, 207.7, 233.1, 261.6, 293.7, 311.1, 349.2],
+    bassPattern: [0, 0, 4, 4, 2, 2, 5, 3],
+    melodyPattern: [7, 8, -1, 6, 7, -1, 9, -1, 8, 7, 6, -1, 5, 7, -1, 8],
+    bassType: 'triangle',
+    leadType: 'sine',
+    bassVol: 0.08,
+    leadVol: 0.045,
+    drumIntensity: 0.7,
+    flavor: 'ominous',
   },
   lightning: {
-    notes: [659, 784, 880, 1047, 1319],
-    bassNotes: [165, 196, 220, 329],
-    tempo: 200,
+    bpm: 175,
+    scale: [164.8, 196, 220, 246.9, 261.6, 293.7, 329.6, 349.2, 392, 440, 493.9],
+    bassPattern: [0, 2, 0, 4, 0, 2, 5, 3],
+    melodyPattern: [6, 7, 8, -1, 9, 10, -1, 8, 7, 6, 8, 9, -1, 7, 6, -1],
+    bassType: 'sawtooth',
+    leadType: 'sawtooth',
+    bassVol: 0.08,
+    leadVol: 0.04,
+    drumIntensity: 1.0,
+    flavor: 'frantic',
   },
   shadow: {
-    notes: [392, 466, 523, 622, 784],
-    bassNotes: [98, 116, 131, 196],
-    tempo: 350,
+    bpm: 120,
+    scale: [98, 116.5, 130.8, 146.8, 155.6, 174.6, 196, 207.7, 233.1, 261.6, 293.7],
+    bassPattern: [0, 0, 2, 1, 3, 3, 1, 2],
+    melodyPattern: [7, -1, -1, 6, 8, -1, 5, -1, 9, -1, 7, -1, 6, -1, -1, 5],
+    bassType: 'sawtooth',
+    leadType: 'triangle',
+    bassVol: 0.1,
+    leadVol: 0.04,
+    drumIntensity: 0.75,
+    flavor: 'dark',
   },
 };
 
@@ -169,40 +363,116 @@ export function startBossMusic(zone: string) {
   stopBossMusic();
   stopAmbientMusic();
   currentBossZone = zone;
-  const config = BOSS_SCALES[zone] || BOSS_SCALES.fire;
-  
+  const track = BOSS_TRACKS[zone] || BOSS_TRACKS.fire;
+  const beatMs = 60000 / track.bpm;
   let beat = 0;
-  bossInterval = window.setInterval(() => {
+
+  // ─── Drum loop ───
+  const drumId = window.setInterval(() => {
+    const b = beat % 16;
+
+    // Kick pattern: every beat, with emphasis on 0, 4, 8, 12
+    if (b % 2 === 0) playKick();
+    // Offbeat kicks for intensity
+    if (track.drumIntensity > 0.8 && (b === 3 || b === 11)) playKick();
+
+    // Snare on 4 and 12
+    if (b === 4 || b === 12) playSnare();
+    // Ghost snares for high intensity
+    if (track.drumIntensity > 0.6 && (b === 7 || b === 15)) {
+      playFilteredNoise(0.06, 0.04, 3000, 'highpass');
+    }
+
+    // Hi-hat pattern
+    if (b % 2 === 0) playHihat(false);
+    if (b % 4 === 2) playHihat(true);
+    // Double-time hats for frantic feel
+    if (track.flavor === 'frantic' && b % 2 === 1) playHihat(false);
+
     beat++;
-    // Driving bass
-    const bassNote = config.bassNotes[beat % config.bassNotes.length];
-    playTone(bassNote, 0.2, 'sawtooth', 0.08);
-    
-    // Percussion
-    if (beat % 2 === 0) playNoise(0.05, 0.06);
-    
-    // Melody on alternating beats
-    if (beat % 3 === 0) {
-      const note = config.notes[Math.floor(Math.random() * config.notes.length)];
-      playTone(note, 0.15, 'square', 0.05);
+  }, beatMs);
+  bossIntervals.push(drumId);
+
+  // ─── Bass line ───
+  let bassStep = 0;
+  const bassId = window.setInterval(() => {
+    const degree = track.bassPattern[bassStep % track.bassPattern.length];
+    const freq = track.scale[degree];
+    // Main bass note
+    playNote(freq, beatMs * 1.8 / 1000, track.bassType, track.bassVol, 0.01, 0.05);
+    // Sub-bass for weight
+    playNote(freq / 2, beatMs * 1.8 / 1000, 'sine', track.bassVol * 0.5, 0.02, 0.1);
+    bassStep++;
+  }, beatMs * 2);
+  bossIntervals.push(bassId);
+
+  // ─── Lead melody ───
+  let melodyStep = 0;
+  const melodyId = window.setInterval(() => {
+    const degree = track.melodyPattern[melodyStep % track.melodyPattern.length];
+    if (degree >= 0) {
+      const freq = track.scale[Math.min(degree, track.scale.length - 1)];
+      playNote(freq, beatMs * 0.9 / 1000, track.leadType, track.leadVol, 0.005, 0.05);
+      // Octave shimmer on some notes
+      if (melodyStep % 4 === 0) {
+        playNote(freq * 2, beatMs * 0.6 / 1000, 'sine', track.leadVol * 0.3, 0.01, 0.08);
+      }
     }
-    
-    // Tension chord every 8 beats
-    if (beat % 8 === 0) {
-      const chord = config.notes.slice(0, 3);
-      chord.forEach((n, i) => {
-        setTimeout(() => playTone(n, 0.4, 'triangle', 0.04), i * 30);
-      });
-    }
-  }, config.tempo);
+    melodyStep++;
+  }, beatMs);
+  bossIntervals.push(melodyId);
+
+  // ─── Power chord stabs every 8 beats ───
+  let chordBeat = 0;
+  const chordId = window.setInterval(() => {
+    const root = track.scale[track.bassPattern[chordBeat % track.bassPattern.length]];
+    // Power chord: root + fifth + octave
+    playNote(root * 2, 0.3, 'sawtooth', 0.035, 0.005, 0.15);
+    playNote(root * 3, 0.3, 'sawtooth', 0.025, 0.005, 0.15);
+    playNote(root * 4, 0.25, 'triangle', 0.02, 0.01, 0.12);
+    chordBeat++;
+  }, beatMs * 8);
+  bossIntervals.push(chordId);
+
+  // ─── Zone-specific flavor layer ───
+  if (track.flavor === 'aggressive') {
+    // Fire: rising tension scrapes
+    const fireId = window.setInterval(() => {
+      playFilteredNoise(0.2, 0.03, 1500, 'bandpass');
+    }, beatMs * 16);
+    bossIntervals.push(fireId);
+  } else if (track.flavor === 'ominous') {
+    // Ice: eerie high sustained tones
+    const iceId = window.setInterval(() => {
+      const high = track.scale[8 + Math.floor(Math.random() * 3)];
+      playNote(high, 2, 'sine', 0.02, 0.3, 0.8);
+    }, beatMs * 12);
+    bossIntervals.push(iceId);
+  } else if (track.flavor === 'frantic') {
+    // Lightning: staccato arpeggios
+    let arpBeat = 0;
+    const lId = window.setInterval(() => {
+      const idx = (arpBeat % 4);
+      const notes = [4, 6, 8, 10];
+      const freq = track.scale[notes[idx]];
+      playNote(freq, 0.06, 'square', 0.03, 0.002, 0.02);
+      arpBeat++;
+    }, beatMs / 2);
+    bossIntervals.push(lId);
+  } else if (track.flavor === 'dark') {
+    // Shadow: deep rumbling pulse
+    const sId = window.setInterval(() => {
+      playNote(40, 1.5, 'sawtooth', 0.04, 0.2, 0.8);
+      setTimeout(() => playNote(45, 1, 'sawtooth', 0.03, 0.3, 0.5), 500);
+    }, beatMs * 8);
+    bossIntervals.push(sId);
+  }
 }
 
 export function stopBossMusic() {
-  if (bossInterval !== null) {
-    clearInterval(bossInterval);
-    bossInterval = null;
-    currentBossZone = null;
-  }
+  bossIntervals.forEach(id => clearInterval(id));
+  bossIntervals = [];
+  currentBossZone = null;
 }
 
 export function getCurrentBossZone(): string | null {
