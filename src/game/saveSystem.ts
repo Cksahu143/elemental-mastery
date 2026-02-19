@@ -16,10 +16,10 @@ export function getDefaultSave(): SaveData {
     currentFloor: 1,
     hp: 100,
     maxHp: 100,
-    mana: 50,
-    maxMana: 50,
+    mana: 80,
+    maxMana: 80,
     xp: 0,
-    xpToNext: 100,
+    xpToNext: 80,
   };
 }
 
