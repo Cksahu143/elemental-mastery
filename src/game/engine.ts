@@ -148,8 +148,8 @@ export function allocateStat(stat: keyof PlayerState['stats']) {
     player.hp = Math.min(player.hp + 5, player.maxHp);
   }
   if (stat === 'elementalPower') {
-    player.maxMana += 3;
-    player.mana = Math.min(player.mana + 3, player.maxMana);
+    player.maxMana += 5;
+    player.mana = Math.min(player.mana + 5, player.maxMana);
   }
   onStateChange?.();
 }
@@ -537,13 +537,34 @@ function updateEnemy(enemy: Enemy, dt: number) {
       SFX.phaseTransition();
       screenShake = 10;
       
-      // Spawn minions around the boss
+      // Spawn minions around the boss — ensure they land on floor tiles
       const minionCount = 3 + enemy.phase;
       for (let i = 0; i < minionCount; i++) {
         const angle = (i / minionCount) * Math.PI * 2;
         const spawnDist = 80 + Math.random() * 40;
-        const mx = enemy.pos.x + Math.cos(angle) * spawnDist;
-        const my = enemy.pos.y + Math.sin(angle) * spawnDist;
+        let mx = enemy.pos.x + Math.cos(angle) * spawnDist;
+        let my = enemy.pos.y + Math.sin(angle) * spawnDist;
+        // Clamp to valid floor tiles
+        let tx = Math.floor(mx / TILE_SIZE);
+        let ty = Math.floor(my / TILE_SIZE);
+        tx = Math.max(2, Math.min(tx, room.width - 3));
+        ty = Math.max(2, Math.min(ty, room.height - 3));
+        // Find nearest floor tile if inside a wall
+        if (room.tiles[ty]?.[tx] !== 0) {
+          let found = false;
+          for (let r = 1; r <= 4 && !found; r++) {
+            for (let dy = -r; dy <= r && !found; dy++) {
+              for (let dx = -r; dx <= r && !found; dx++) {
+                const ny = ty + dy, nx = tx + dx;
+                if (ny > 0 && ny < room.height - 1 && nx > 0 && nx < room.width - 1 && room.tiles[ny]?.[nx] === 0) {
+                  tx = nx; ty = ny; found = true;
+                }
+              }
+            }
+          }
+        }
+        mx = tx * TILE_SIZE;
+        my = ty * TILE_SIZE;
         const minionType: EnemyType = i % 3 === 0 ? 'ranged' : i % 3 === 1 ? 'assassin' : 'melee';
         const minion: Enemy = {
           id: `enemy_summon_${projIdCounter++}`,
@@ -756,7 +777,7 @@ function onEnemyKill(enemy: Enemy) {
   while (player.xp >= player.xpToNext) {
     player.xp -= player.xpToNext;
     player.level++;
-    player.xpToNext = Math.floor(player.xpToNext * 1.3);
+    player.xpToNext = Math.floor(player.xpToNext * (player.level >= 10 ? 1.1 : 1.25));
     player.statPoints += 3;
     player.hp = player.maxHp;
     player.mana = player.maxMana;
