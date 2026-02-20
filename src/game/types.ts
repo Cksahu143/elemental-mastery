@@ -4,7 +4,7 @@ export const TILE_SIZE = 48;
 export const CANVAS_WIDTH = 960;
 export const CANVAS_HEIGHT = 640;
 
-export type ElementType = 'fire' | 'ice' | 'lightning' | 'shadow';
+export type ElementType = 'fire' | 'ice' | 'lightning' | 'shadow' | 'earth' | 'wind' | 'nature' | 'void';
 
 export interface Position {
   x: number;
@@ -66,7 +66,7 @@ export interface Enemy {
 export type EnemyType = 'melee' | 'ranged' | 'assassin' | 'tank' | 'miniboss' | 'boss';
 
 export interface StatusEffect {
-  type: 'burn' | 'slow' | 'chain' | 'lifesteal';
+  type: 'burn' | 'slow' | 'chain' | 'lifesteal' | 'root' | 'poison' | 'weaken';
   duration: number;
   damage: number;
 }
@@ -143,6 +143,10 @@ export const ELEMENT_COLORS: Record<ElementType, string> = {
   ice: '#38BDF8',
   lightning: '#EAB308',
   shadow: '#A855F7',
+  earth: '#92400E',
+  wind: '#34D399',
+  nature: '#22C55E',
+  void: '#EC4899',
 };
 
 export const ELEMENT_COLORS_DARK: Record<ElementType, string> = {
@@ -150,6 +154,10 @@ export const ELEMENT_COLORS_DARK: Record<ElementType, string> = {
   ice: '#0284C7',
   lightning: '#A16207',
   shadow: '#7C3AED',
+  earth: '#78350F',
+  wind: '#059669',
+  nature: '#15803D',
+  void: '#BE185D',
 };
 
 export const ZONE_NAMES: Record<ElementType, string> = {
@@ -157,6 +165,21 @@ export const ZONE_NAMES: Record<ElementType, string> = {
   ice: 'Frozen Wastes',
   lightning: 'Storm Citadel',
   shadow: 'Abyssal Hollow',
+  earth: 'Ancient Badlands',
+  wind: 'Sky Peaks',
+  nature: 'Verdant Depths',
+  void: 'The Abyss',
+};
+
+export const BOSS_NAMES: Record<ElementType, string> = {
+  fire: 'Ignis',
+  ice: 'Glacius',
+  lightning: 'Voltaris',
+  shadow: 'Umbra',
+  earth: 'Terrath',
+  wind: 'Zephyros',
+  nature: 'Sylvara',
+  void: 'Nullex',
 };
 
 export const SKILLS: Record<ElementType, { name: string; id: string; description: string; manaCost: number; unlockLevel: number }[]> = {
@@ -183,5 +206,29 @@ export const SKILLS: Record<ElementType, { name: string; id: string; description
     { name: 'Void Rift', id: 'void_rift', description: 'Open a rift that pulls and damages enemies', manaCost: 50, unlockLevel: 5 },
     { name: 'Shadow Step', id: 'shadow_step', description: 'Teleport to cursor position, damaging enemies at both locations', manaCost: 25, unlockLevel: 7 },
     { name: 'Soul Drain', id: 'soul_drain', description: 'Drain life from all nearby enemies, healing yourself', manaCost: 55, unlockLevel: 10 },
+  ],
+  earth: [
+    { name: 'Stone Spike', id: 'stone_spike', description: 'Erupt spikes from the ground in a line', manaCost: 22, unlockLevel: 2 },
+    { name: 'Quake', id: 'quake', description: 'Slam the ground, stunning and damaging all nearby enemies', manaCost: 48, unlockLevel: 5 },
+    { name: 'Boulder Toss', id: 'boulder_toss', description: 'Hurl a massive boulder that crushes enemies', manaCost: 35, unlockLevel: 7 },
+    { name: 'Terra Fortress', id: 'terra_fortress', description: 'Encase yourself in stone, becoming immune and reflecting damage', manaCost: 60, unlockLevel: 10 },
+  ],
+  wind: [
+    { name: 'Gust Slash', id: 'gust_slash', description: 'Launch a razor-sharp blade of wind', manaCost: 18, unlockLevel: 2 },
+    { name: 'Cyclone', id: 'cyclone', description: 'Create a tornado that pulls and shreds enemies', manaCost: 45, unlockLevel: 5 },
+    { name: 'Aerial Barrage', id: 'aerial_barrage', description: 'Unleash a volley of wind blades in all directions', manaCost: 38, unlockLevel: 7 },
+    { name: 'Eye of the Storm', id: 'eye_of_storm', description: 'Become the eye of a massive storm, massively boosting speed and damage', manaCost: 65, unlockLevel: 10 },
+  ],
+  nature: [
+    { name: 'Vine Grasp', id: 'vine_grasp', description: 'Roots enemies in place with erupting vines', manaCost: 20, unlockLevel: 2 },
+    { name: 'Spore Cloud', id: 'spore_cloud', description: 'Release a toxic spore cloud that poisons enemies', manaCost: 42, unlockLevel: 5 },
+    { name: 'Regrowth', id: 'regrowth', description: 'Call upon nature to heal yourself over time', manaCost: 35, unlockLevel: 7 },
+    { name: 'Overgrowth', id: 'overgrowth', description: 'The forest erupts — massive roots and thorns fill the room', manaCost: 60, unlockLevel: 10 },
+  ],
+  void: [
+    { name: 'Null Bolt', id: 'null_bolt', description: 'Fire a bolt of pure void energy that ignores defense', manaCost: 25, unlockLevel: 2 },
+    { name: 'Dimension Rift', id: 'dimension_rift', description: 'Tear a rift that warps enemy positions', manaCost: 50, unlockLevel: 5 },
+    { name: 'Entropy Field', id: 'entropy_field', description: 'Create a field of chaos that weakens all enemies in range', manaCost: 38, unlockLevel: 7 },
+    { name: 'Singularity', id: 'singularity', description: 'Collapse reality into a point, dealing catastrophic damage to all enemies', manaCost: 75, unlockLevel: 10 },
   ],
 };

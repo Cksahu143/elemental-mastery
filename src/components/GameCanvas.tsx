@@ -18,10 +18,11 @@ import NPCDialogue from './NPCDialogue';
 import StoryCutscene from './StoryCutscene';
 import SceneBackground from './SceneBackground';
 import KingdomHub from './KingdomHub';
+import IntroCutscene from './IntroCutscene';
 
-type GamePhase = 'title' | 'playing' | 'paused';
+type GamePhase = 'title' | 'intro' | 'playing' | 'paused';
 
-const ZONE_ORDER: ElementType[] = ['fire', 'ice', 'lightning', 'shadow'];
+const ZONE_ORDER: ElementType[] = ['fire', 'ice', 'lightning', 'shadow', 'earth', 'wind', 'nature', 'void'];
 
 const POST_INTRO_DIALOGUE = [
   { speaker: 'Mysterious Voice', text: 'You stir at last... The Shattering has left this world in ruin.', color: '#A855F7' },
@@ -33,7 +34,7 @@ const POST_INTRO_DIALOGUE = [
 ];
 
 const ZONE_ENTRY_DIALOGUES: Record<ElementType, { speaker: string; text: string; color: string }[]> = {
-  fire: [], // handled by POST_INTRO_DIALOGUE
+  fire: [],
   ice: [
     { speaker: 'Echo of Ignis', text: 'The Frozen Wastes stretch before you. Glacius\'s sorrow has crystallized the very air.', color: '#FF4500' },
     { speaker: 'Echo of Ignis', text: 'Tread carefully — the ice remembers all who fall upon it.', color: '#FF4500' },
@@ -48,6 +49,26 @@ const ZONE_ENTRY_DIALOGUES: Record<ElementType, { speaker: string; text: string;
     { speaker: 'Echo of Voltaris', text: 'The Abyssal Hollow... even my light cannot reach its depths.', color: '#FACC15' },
     { speaker: 'Echo of Voltaris', text: 'What waits below is not merely an enemy. It is hunger itself.', color: '#FACC15' },
     { speaker: 'Mysterious Voice', text: 'Shadow enemies drain life. Your shadow skills heal — use that wisely.', color: '#A855F7' },
+  ],
+  earth: [
+    { speaker: 'Echo of Umbra', text: 'The Ancient Badlands... the earth itself remembers the cataclysm.', color: '#C084FC' },
+    { speaker: 'Echo of Umbra', text: 'Terrath was once a gentle guardian. Now stone and rage are all that remain.', color: '#C084FC' },
+    { speaker: 'Mysterious Voice', text: 'Earth enemies are armored. Use lightning to crack their defenses.', color: '#A855F7' },
+  ],
+  wind: [
+    { speaker: 'Echo of Terrath', text: 'The Sky Peaks. I never thought I\'d see these heights again...', color: '#D97706' },
+    { speaker: 'Echo of Terrath', text: 'Zephyros rides the storm winds like a blade. Watch the skies.', color: '#D97706' },
+    { speaker: 'Mysterious Voice', text: 'Wind enemies are agile — earth slows them. Use your positioning.', color: '#A855F7' },
+  ],
+  nature: [
+    { speaker: 'Echo of Zephyros', text: 'The Verdant Depths... what was once beautiful is now a trap of thorns.', color: '#34D399' },
+    { speaker: 'Echo of Zephyros', text: 'Sylvara\'s grief has turned the forest against all who enter.', color: '#34D399' },
+    { speaker: 'Mysterious Voice', text: 'Nature enemies regenerate. Burn them down fast with fire or void.', color: '#A855F7' },
+  ],
+  void: [
+    { speaker: 'Echo of Sylvara', text: 'The Abyss. Even I am afraid. Nullex is not merely corrupted — it is the corruption.', color: '#4ADE80' },
+    { speaker: 'Echo of Sylvara', text: 'All elements exist to combat the void. You will need them all.', color: '#4ADE80' },
+    { speaker: 'Mysterious Voice', text: 'Void enemies negate your skills. Adapt. Survive. End this.', color: '#A855F7' },
   ],
 };
 
@@ -88,10 +109,11 @@ export default function GameCanvas() {
     setKingdomRegen(bonuses.hpRegen, bonuses.manaRegen);
     setLoreUnlocked(save.loreUnlocked || []);
     setCurrentZone(save.currentZone);
-    setPhase('playing');
     setShowDeath(false);
     if (isNew) {
-      setShowNPCDialogue(true);
+      setPhase('intro'); // show animated intro first
+    } else {
+      setPhase('playing');
     }
   }, [kingdom]);
 
@@ -104,6 +126,11 @@ export default function GameCanvas() {
     if (save) startGame(save, false);
     else startGame(getDefaultSave(), true);
   }, [startGame]);
+
+  const handleIntroComplete = useCallback(() => {
+    setPhase('playing');
+    setShowNPCDialogue(true);
+  }, []);
 
   // Set up callbacks
   useEffect(() => {
@@ -233,15 +260,24 @@ export default function GameCanvas() {
     return <TitleScreen onNewGame={handleNewGame} onContinue={handleContinue} hasSave={hasSave} />;
   }
 
+  if (phase === 'intro') {
+    return <IntroCutscene onComplete={handleIntroComplete} />;
+  }
+
   const player = getPlayer();
   const floor = getFloor();
   const room = getRoom();
   const loreEntries = getLoreEntries(loreUnlocked);
   const nextZone = ZONE_ORDER[(ZONE_ORDER.indexOf(kingdomDefeatedZone) + 1) % ZONE_ORDER.length];
 
+  // Boss name lookup
+  const BOSS_NAME_MAP: Record<ElementType, string> = {
+    fire: 'Ignis', ice: 'Glacius', lightning: 'Voltaris', shadow: 'Umbra',
+    earth: 'Terrath', wind: 'Zephyros', nature: 'Sylvara', void: 'Nullex',
+  };
+
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center">
-      {/* 3D Background */}
       <SceneBackground zone={currentZone} />
 
       <div className="relative" style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}>
@@ -263,7 +299,6 @@ export default function GameCanvas() {
             onPause={() => setPhase('paused')}
           />
         )}
-        {/* Notification */}
         {notification && (
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none">
             <p className="text-2xl font-display font-bold text-accent text-glow-lightning tracking-widest animate-pulse-glow">
@@ -294,7 +329,7 @@ export default function GameCanvas() {
       )}
       {bossCutsceneZone && (
         <StoryCutscene
-          title={`${bossCutsceneZone === 'fire' ? 'Ignis' : bossCutsceneZone === 'ice' ? 'Glacius' : bossCutsceneZone === 'lightning' ? 'Voltaris' : 'Umbra'} Defeated`}
+          title={`${BOSS_NAME_MAP[bossCutsceneZone]} Defeated`}
           lines={POST_BOSS_DIALOGUES[bossCutsceneZone] || []}
           zone={bossCutsceneZone}
           onComplete={handleBossCutsceneComplete}
@@ -307,6 +342,7 @@ export default function GameCanvas() {
           nextZone={nextZone}
           onUpdateKingdom={(k) => { setKingdom(k); saveKingdom(k); }}
           onContinue={handleKingdomContinue}
+          standalone={!bossCutsceneZone}
         />
       )}
       {showDeath && (
@@ -322,8 +358,14 @@ export default function GameCanvas() {
           onResume={() => setPhase('playing')}
           onSave={handleSave}
           onQuit={() => setPhase('title')}
+          onKingdom={() => {
+            setKingdomDefeatedZone(player?.element || 'fire');
+            setPhase('playing');
+            setShowKingdom(true);
+          }}
         />
       )}
     </div>
   );
 }
+

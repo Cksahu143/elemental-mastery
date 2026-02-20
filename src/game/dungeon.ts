@@ -136,18 +136,30 @@ export function getTileColor(tile: number, zone: ElementType): string {
     ice: '#040a1a',
     lightning: '#0f0d04',
     shadow: '#0a041a',
+    earth: '#1a1004',
+    wind: '#041a10',
+    nature: '#041a04',
+    void: '#1a0410',
   };
   const wallColors: Record<ElementType, string> = {
     fire: '#3d1a0a',
     ice: '#0a1a3d',
     lightning: '#2d2a0a',
     shadow: '#1a0a3d',
+    earth: '#3d2a0a',
+    wind: '#0a3d20',
+    nature: '#0a3d0a',
+    void: '#3d0a20',
   };
   const hazardColors: Record<ElementType, string> = {
     fire: '#ff4400',
     ice: '#00aaff',
     lightning: '#ffcc00',
     shadow: '#9900ff',
+    earth: '#cc7700',
+    wind: '#00ffaa',
+    nature: '#00dd44',
+    void: '#ff00aa',
   };
 
   if (tile === 0) return floorColors[zone];

@@ -11,6 +11,10 @@ const ELEMENT_LABELS: Record<ElementType, string> = {
   ice: '❄ Ice',
   lightning: '⚡ Lightning',
   shadow: '🌑 Shadow',
+  earth: '🪨 Earth',
+  wind: '🌪️ Wind',
+  nature: '🌿 Nature',
+  void: '🕳️ Void',
 };
 
 export default function SkillTree({ player, onClose }: SkillTreeProps) {

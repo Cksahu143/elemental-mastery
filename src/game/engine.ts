@@ -850,6 +850,26 @@ function applyElementEffect(enemy: Enemy, element: ElementType) {
     case 'shadow':
       player.hp = Math.min(player.maxHp, player.hp + 2);
       break;
+    case 'earth':
+      // Roots — apply slow
+      if (!enemy.statusEffects.some(e => e.type === 'slow')) {
+        enemy.statusEffects.push({ type: 'slow', duration: 3, damage: 0 });
+      }
+      break;
+    case 'wind':
+      // Extra knockback
+      enemy.knockback.x *= 3;
+      enemy.knockback.y *= 3;
+      break;
+    case 'nature':
+      // Poison DoT
+      if (!enemy.statusEffects.some(e => e.type === 'burn')) {
+        enemy.statusEffects.push({ type: 'burn', duration: 4, damage: 3 });
+      }
+      break;
+    case 'void':
+      // Massive damage bonus, no other effect
+      break;
   }
 }
 
@@ -920,7 +940,7 @@ function onEnemyKill(enemy: Enemy) {
       onStateChange?.();
     }
     // Unlock next zone
-    const zoneOrder: ElementType[] = ['fire', 'ice', 'lightning', 'shadow'];
+    const zoneOrder: ElementType[] = ['fire', 'ice', 'lightning', 'shadow', 'earth', 'wind', 'nature', 'void'];
     const nextIdx = zoneOrder.indexOf(enemy.element) + 1;
     if (nextIdx < zoneOrder.length && !player.unlockedElements.includes(zoneOrder[nextIdx])) {
       player.unlockedElements.push(zoneOrder[nextIdx]);

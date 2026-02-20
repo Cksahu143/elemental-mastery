@@ -2,9 +2,10 @@ interface PauseMenuProps {
   onResume: () => void;
   onSave: () => void;
   onQuit: () => void;
+  onKingdom?: () => void;
 }
 
-export default function PauseMenu({ onResume, onSave, onQuit }: PauseMenuProps) {
+export default function PauseMenu({ onResume, onSave, onQuit, onKingdom }: PauseMenuProps) {
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
       <div className="bg-card border border-border p-8 text-center min-w-[280px]">
@@ -22,6 +23,14 @@ export default function PauseMenu({ onResume, onSave, onQuit }: PauseMenuProps) 
           >
             Save Game
           </button>
+          {onKingdom && (
+            <button
+              onClick={onKingdom}
+              className="py-2 text-sm font-ui uppercase tracking-widest border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 transition-colors"
+            >
+              👑 Kingdom Hub
+            </button>
+          )}
           <button
             onClick={onQuit}
             className="py-2 text-sm font-ui uppercase tracking-widest border border-border text-muted-foreground hover:text-foreground transition-colors"

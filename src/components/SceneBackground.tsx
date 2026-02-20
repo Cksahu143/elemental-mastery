@@ -6,6 +6,10 @@ const ZONE_CONFIGS: Record<ElementType, { baseColor: string; accentColor: string
   ice: { baseColor: '#000a1a', accentColor: '#38BDF8', fogColor: '#00051a', particleColor: '#67E8F9' },
   lightning: { baseColor: '#0a0800', accentColor: '#EAB308', fogColor: '#050400', particleColor: '#FDE047' },
   shadow: { baseColor: '#0a001a', accentColor: '#A855F7', fogColor: '#05000d', particleColor: '#C084FC' },
+  earth: { baseColor: '#1a0c00', accentColor: '#92400E', fogColor: '#0d0700', particleColor: '#D97706' },
+  wind: { baseColor: '#001a10', accentColor: '#34D399', fogColor: '#000d08', particleColor: '#6EE7B7' },
+  nature: { baseColor: '#001a00', accentColor: '#22C55E', fogColor: '#000d00', particleColor: '#4ADE80' },
+  void: { baseColor: '#1a0020', accentColor: '#EC4899', fogColor: '#0d0010', particleColor: '#F472B6' },
 };
 
 function checkWebGLSupport(): boolean {
