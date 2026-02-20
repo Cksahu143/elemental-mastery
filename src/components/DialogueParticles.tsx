@@ -47,6 +47,34 @@ const ZONE_PARTICLE_CONFIGS: Record<ElementType, { colors: string[]; gravity: nu
     sizeRange: [2, 5],
     count: 45,
   },
+  earth: {
+    colors: ['#92400E', '#B45309', '#D97706', '#78350F', '#A16207'],
+    gravity: 0.3,
+    speed: 0.6,
+    sizeRange: [2, 6],
+    count: 40,
+  },
+  wind: {
+    colors: ['#34D399', '#6EE7B7', '#10B981', '#A7F3D0', '#FFFFFF'],
+    gravity: -0.1,
+    speed: 4.0,
+    sizeRange: [1, 3],
+    count: 70,
+  },
+  nature: {
+    colors: ['#22C55E', '#4ADE80', '#86EFAC', '#16A34A', '#BBF7D0'],
+    gravity: -0.05,
+    speed: 0.9,
+    sizeRange: [1, 4],
+    count: 55,
+  },
+  void: {
+    colors: ['#EC4899', '#F472B6', '#DB2777', '#BE185D', '#FBCFE8'],
+    gravity: 0.0,
+    speed: 1.5,
+    sizeRange: [2, 5],
+    count: 50,
+  },
 };
 
 export default function DialogueParticles({ element = 'fire', intensity = 1 }: DialogueParticlesProps) {

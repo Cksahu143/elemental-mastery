@@ -204,9 +204,33 @@ export const POST_BOSS_DIALOGUES: Record<string, { speaker: string; text: string
   ],
   shadow: [
     { speaker: 'Voidmaw', text: 'The hunger... fades... finally...', color: '#A855F7' },
-    { speaker: 'Echo of Umbra', text: 'You hold all four elements now, Bearer. The Convergence approaches.', color: '#C084FC' },
-    { speaker: 'Echo of Umbra', text: 'But beware — the corruption\'s heart still beats. This was only the beginning.', color: '#C084FC' },
-    { speaker: 'The Four Echoes', text: 'Balance... or domination. The choice will be yours.', color: '#FFD700' },
+    { speaker: 'Echo of Umbra', text: 'You hold four elements, Bearer. But four more await in the ancient lands.', color: '#C084FC' },
+    { speaker: 'Echo of Umbra', text: 'Terrath sleeps in the Ancient Badlands. The earth element calls to you.', color: '#C084FC' },
+    { speaker: 'Mysterious Voice', text: 'Earth awakens within you. Seek the Ancient Badlands.', color: '#A855F7' },
+  ],
+  earth: [
+    { speaker: 'Stone Colossus', text: 'The... mountain... yields...', color: '#D97706' },
+    { speaker: 'Echo of Terrath', text: 'The Sky Peaks. Zephyros was gentle once — before the winds turned against the world.', color: '#B45309' },
+    { speaker: 'Echo of Terrath', text: 'Find him. Free him. Let the wind carry hope again.', color: '#B45309' },
+    { speaker: 'Mysterious Voice', text: 'Wind flows through you. Ascend to the Sky Peaks.', color: '#A855F7' },
+  ],
+  wind: [
+    { speaker: 'Tempest Drake', text: 'The gale... dies... to a whisper...', color: '#34D399' },
+    { speaker: 'Echo of Zephyros', text: 'Sylvara waits in the Verdant Depths. The forest has grown dark without her light.', color: '#6EE7B7' },
+    { speaker: 'Echo of Zephyros', text: 'Six elements. Two more. Nature and the Void await.', color: '#6EE7B7' },
+    { speaker: 'Mysterious Voice', text: 'Nature stirs within you. Descend into the Verdant Depths.', color: '#A855F7' },
+  ],
+  nature: [
+    { speaker: 'Thornlord', text: 'The roots... release... their grip...', color: '#22C55E' },
+    { speaker: 'Echo of Sylvara', text: 'Seven elements united in you, Bearer. One remains. The Void.', color: '#4ADE80' },
+    { speaker: 'Echo of Sylvara', text: 'Nullex is not a Guardian. It is the corruption itself given form. Be ready.', color: '#4ADE80' },
+    { speaker: 'Mysterious Voice', text: 'Void energy swirls within you. Enter the Abyss. End this.', color: '#A855F7' },
+  ],
+  void: [
+    { speaker: 'Nullex', text: 'I... cannot be... destroyed... I am... everything... and nothing...', color: '#EC4899' },
+    { speaker: 'The Eight Echoes', text: 'You hold all eight elements, Bearer. The Convergence is complete.', color: '#FFD700' },
+    { speaker: 'The Eight Echoes', text: 'Balance is restored. For now. The world breathes again.', color: '#FFD700' },
+    { speaker: 'Mysterious Voice', text: 'You have done it. The Fragment Bearer\'s journey is complete... or is it just beginning?', color: '#A855F7' },
   ],
 };
 

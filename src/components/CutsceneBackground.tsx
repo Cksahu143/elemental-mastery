@@ -36,6 +36,30 @@ const ZONE_VISUALS: Record<ElementType, {
     particleCount: 70,
     speed: 1.0,
   },
+  earth: {
+    colors: ['#92400E', '#B45309', '#D97706', '#78350F', '#A16207'],
+    bgGradient: 'radial-gradient(ellipse at 50% 80%, #1a0c00 0%, #0d0700 40%, #000000 100%)',
+    particleCount: 55,
+    speed: 0.7,
+  },
+  wind: {
+    colors: ['#34D399', '#6EE7B7', '#A7F3D0', '#10B981', '#D1FAE5'],
+    bgGradient: 'radial-gradient(ellipse at 50% 30%, #001a10 0%, #000d08 40%, #000000 100%)',
+    particleCount: 90,
+    speed: 3.0,
+  },
+  nature: {
+    colors: ['#22C55E', '#4ADE80', '#86EFAC', '#16A34A', '#BBF7D0'],
+    bgGradient: 'radial-gradient(ellipse at 50% 70%, #001a00 0%, #000d00 40%, #000000 100%)',
+    particleCount: 65,
+    speed: 0.9,
+  },
+  void: {
+    colors: ['#EC4899', '#F472B6', '#DB2777', '#BE185D', '#FBCFE8'],
+    bgGradient: 'radial-gradient(ellipse at 50% 50%, #1a0020 0%, #0d0010 40%, #000000 100%)',
+    particleCount: 75,
+    speed: 1.2,
+  },
 };
 
 interface Particle {

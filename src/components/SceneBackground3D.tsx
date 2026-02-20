@@ -8,6 +8,10 @@ const ZONE_CONFIGS: Record<ElementType, { accentColor: string; fogColor: string;
   ice: { accentColor: '#38BDF8', fogColor: '#00051a', particleColor: '#67E8F9' },
   lightning: { accentColor: '#EAB308', fogColor: '#050400', particleColor: '#FDE047' },
   shadow: { accentColor: '#A855F7', fogColor: '#05000d', particleColor: '#C084FC' },
+  earth: { accentColor: '#D97706', fogColor: '#0d0700', particleColor: '#B45309' },
+  wind: { accentColor: '#34D399', fogColor: '#000d08', particleColor: '#6EE7B7' },
+  nature: { accentColor: '#22C55E', fogColor: '#000d00', particleColor: '#4ADE80' },
+  void: { accentColor: '#EC4899', fogColor: '#0d0010', particleColor: '#F472B6' },
 };
 
 function FloatingParticles({ color, count = 200 }: { color: string; count?: number }) {
