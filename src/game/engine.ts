@@ -6,6 +6,7 @@ import {
 import { generateRoom, getTileColor } from './dungeon';
 import { SaveData } from './types';
 import { SFX, startAmbientMusic, startBossMusic, stopBossMusic } from './audio';
+import type { KingdomBonuses } from './kingdom';
 
 // ─── Input tracking ───
 const keys: Record<string, boolean> = {};
@@ -65,17 +66,18 @@ export function getPlayer(): PlayerState { return player; }
 export function getFloor(): number { return floor; }
 export function getRoom(): GameRoom { return room; }
 
-export function initGame(save: SaveData) {
+export function initGame(save: SaveData, kingdomBonuses?: KingdomBonuses) {
+  const kb = kingdomBonuses;
   player = {
     pos: { x: 0, y: 0 },
-    hp: save.hp,
-    maxHp: save.maxHp,
-    mana: save.mana,
-    maxMana: save.maxMana,
+    hp: Math.min(save.hp + (kb?.hpBonus ?? 0), save.maxHp + (kb?.hpBonus ?? 0)),
+    maxHp: save.maxHp + (kb?.hpBonus ?? 0),
+    mana: Math.min(save.mana + (kb?.manaBonus ?? 0), save.maxMana + (kb?.manaBonus ?? 0)),
+    maxMana: save.maxMana + (kb?.manaBonus ?? 0),
     xp: save.xp,
     xpToNext: save.xpToNext,
     level: save.level,
-    stats: { ...save.stats },
+    stats: { ...save.stats, attack: save.stats.attack + (kb?.attackBonus ?? 0) },
     statPoints: save.statPoints,
     element: save.currentZone,
     unlockedElements: [...save.unlockedElements],
@@ -92,6 +94,14 @@ export function initGame(save: SaveData) {
   bossDialogueShown = false;
   loadRoom(save.currentZone, floor);
   startAmbientMusic(save.currentZone);
+}
+
+// Kingdom regen stored separately, applied per update tick
+let kingdomHpRegen = 0;
+let kingdomManaRegen = 0;
+export function setKingdomRegen(hpR: number, manaR: number) {
+  kingdomHpRegen = hpR;
+  kingdomManaRegen = manaR;
 }
 
 function loadRoom(zone: ElementType, fl: number) {
@@ -158,6 +168,10 @@ export function allocateStat(stat: keyof PlayerState['stats']) {
 export function update(dt: number) {
   if (!player || !room) return;
   gameTime += dt;
+
+  // Kingdom shrine passive regen
+  if (kingdomHpRegen > 0) player.hp = Math.min(player.maxHp, player.hp + kingdomHpRegen * dt);
+  if (kingdomManaRegen > 0) player.mana = Math.min(player.maxMana, player.mana + kingdomManaRegen * dt);
 
   // Mana regen
   player.mana = Math.min(player.maxMana, player.mana + 0.5 * dt);
