@@ -1,9 +1,10 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, SKILLS } from '../game/types';
-import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, unlockSkill, getActiveSkills } from '../game/engine';
+import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, unlockSkill, getActiveSkills, setKingdomRegen } from '../game/engine';
 import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/saveSystem';
 import { POST_BOSS_DIALOGUES } from '../game/lore';
 import { SFX } from '../game/audio';
+import { loadKingdom, saveKingdom, awardBossGold, awardRoomGold, getKingdomBonuses, KingdomState } from '../game/kingdom';
 import TitleScreen from './TitleScreen';
 import GameHUD from './GameHUD';
 import LoreCodex from './LoreCodex';
@@ -16,8 +17,11 @@ import Tutorial from './Tutorial';
 import NPCDialogue from './NPCDialogue';
 import StoryCutscene from './StoryCutscene';
 import SceneBackground from './SceneBackground';
+import KingdomHub from './KingdomHub';
 
 type GamePhase = 'title' | 'playing' | 'paused';
+
+const ZONE_ORDER: ElementType[] = ['fire', 'ice', 'lightning', 'shadow'];
 
 const POST_INTRO_DIALOGUE = [
   { speaker: 'Mysterious Voice', text: 'You stir at last... The Shattering has left this world in ruin.', color: '#A855F7' },
@@ -65,6 +69,10 @@ export default function GameCanvas() {
   const [bossCutsceneZone, setBossCutsceneZone] = useState<ElementType | null>(null);
   const [zoneEntryDialogue, setZoneEntryDialogue] = useState<ElementType | null>(null);
   const [currentZone, setCurrentZone] = useState<ElementType>('fire');
+  // Kingdom state
+  const [kingdom, setKingdom] = useState<KingdomState>(() => loadKingdom());
+  const [showKingdom, setShowKingdom] = useState(false);
+  const [kingdomDefeatedZone, setKingdomDefeatedZone] = useState<ElementType>('fire');
 
   const hasSave = loadGame() !== null;
 
@@ -73,8 +81,11 @@ export default function GameCanvas() {
     setTimeout(() => setNotification(null), 2000);
   }, []);
 
-  const startGame = useCallback((save: ReturnType<typeof getDefaultSave>, isNew: boolean) => {
-    initGame(save);
+  const startGame = useCallback((save: ReturnType<typeof getDefaultSave>, isNew: boolean, kb?: KingdomState) => {
+    const kingdomState = kb ?? kingdom;
+    const bonuses = getKingdomBonuses(kingdomState);
+    initGame(save, bonuses);
+    setKingdomRegen(bonuses.hpRegen, bonuses.manaRegen);
     setLoreUnlocked(save.loreUnlocked || []);
     setCurrentZone(save.currentZone);
     setPhase('playing');
@@ -82,7 +93,7 @@ export default function GameCanvas() {
     if (isNew) {
       setShowNPCDialogue(true);
     }
-  }, []);
+  }, [kingdom]);
 
   const handleNewGame = useCallback(() => {
     startGame(getDefaultSave(), true);
@@ -103,7 +114,6 @@ export default function GameCanvas() {
         if (p && p.element !== currentZone) {
           const prevZone = currentZone;
           setCurrentZone(p.element);
-          // Show zone entry dialogue for new zones
           const dialogues = ZONE_ENTRY_DIALOGUES[p.element];
           if (dialogues && dialogues.length > 0 && prevZone !== p.element) {
             setZoneEntryDialogue(p.element);
@@ -123,8 +133,24 @@ export default function GameCanvas() {
         showNotif('LEVEL UP!');
         setShowStats(true);
       },
-      onRoomCleared: () => showNotif('Room Cleared!'),
-      onBossDefeated: (zone) => setBossCutsceneZone(zone),
+      onRoomCleared: () => {
+        showNotif('Room Cleared!');
+        // Award gold for room clear
+        setKingdom(prev => {
+          const updated = awardRoomGold(prev, getFloor());
+          saveKingdom(updated);
+          return updated;
+        });
+      },
+      onBossDefeated: (zone) => {
+        setBossCutsceneZone(zone);
+        // Award boss gold
+        setKingdom(prev => {
+          const updated = awardBossGold(prev, getFloor());
+          saveKingdom(updated);
+          return updated;
+        });
+      },
     });
   }, [showNotif, currentZone]);
 
@@ -143,7 +169,7 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      if (!showLore && !showStats && !showSkills && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone && !zoneEntryDialogue) {
+      if (!showLore && !showStats && !showSkills && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone && !zoneEntryDialogue && !showKingdom) {
         update(dt);
       }
 
@@ -161,7 +187,7 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom]);
 
   // ESC key
   useEffect(() => {
@@ -185,6 +211,24 @@ export default function GameCanvas() {
     showNotif('Game Saved!');
   }, [loreUnlocked, showNotif]);
 
+  // After boss cutscene completes, show kingdom hub instead of proceeding directly
+  const handleBossCutsceneComplete = useCallback(() => {
+    const zone = bossCutsceneZone!;
+    setBossCutsceneZone(null);
+    const zoneIdx = ZONE_ORDER.indexOf(zone);
+    const nextZoneIdx = (zoneIdx + 1) % ZONE_ORDER.length;
+    setKingdomDefeatedZone(zone);
+    // store next zone for after kingdom
+    setCurrentZone(ZONE_ORDER[nextZoneIdx]);
+    setShowKingdom(true);
+  }, [bossCutsceneZone]);
+
+  const handleKingdomContinue = useCallback(() => {
+    setShowKingdom(false);
+    // Continue to next floor/zone
+    nextRoom();
+  }, []);
+
   if (phase === 'title') {
     return <TitleScreen onNewGame={handleNewGame} onContinue={handleContinue} hasSave={hasSave} />;
   }
@@ -193,6 +237,7 @@ export default function GameCanvas() {
   const floor = getFloor();
   const room = getRoom();
   const loreEntries = getLoreEntries(loreUnlocked);
+  const nextZone = ZONE_ORDER[(ZONE_ORDER.indexOf(kingdomDefeatedZone) + 1) % ZONE_ORDER.length];
 
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center">
@@ -252,7 +297,16 @@ export default function GameCanvas() {
           title={`${bossCutsceneZone === 'fire' ? 'Ignis' : bossCutsceneZone === 'ice' ? 'Glacius' : bossCutsceneZone === 'lightning' ? 'Voltaris' : 'Umbra'} Defeated`}
           lines={POST_BOSS_DIALOGUES[bossCutsceneZone] || []}
           zone={bossCutsceneZone}
-          onComplete={() => setBossCutsceneZone(null)}
+          onComplete={handleBossCutsceneComplete}
+        />
+      )}
+      {showKingdom && (
+        <KingdomHub
+          kingdom={kingdom}
+          defeatedZone={kingdomDefeatedZone}
+          nextZone={nextZone}
+          onUpdateKingdom={(k) => { setKingdom(k); saveKingdom(k); }}
+          onContinue={handleKingdomContinue}
         />
       )}
       {showDeath && (
