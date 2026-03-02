@@ -180,6 +180,26 @@ export const BOSS_DIALOGUES: Record<string, string[]> = {
     "I am Voidmaw... Umbra's hunger given form.",
     "The darkness does not consume. It BECOMES.",
   ],
+  earth: [
+    "The mountain does not move for the wind.",
+    "I am Stone Colossus... Terrath's unbroken will.",
+    "You will be ground to DUST beneath my weight.",
+  ],
+  wind: [
+    "You cannot catch what flies above you.",
+    "I am Tempest Drake... Zephyros's final breath.",
+    "The sky will swallow you WHOLE.",
+  ],
+  nature: [
+    "The forest remembers every trespass.",
+    "I am Thornlord... Sylvara's grief made thorns.",
+    "You will be consumed by the roots of the world.",
+  ],
+  void: [
+    "There is nothing here. There never was.",
+    "I am Nullex... the absence that devours.",
+    "Reality itself unravels in my presence. YOU ARE NOTHING.",
+  ],
 };
 
 export const POST_BOSS_DIALOGUES: Record<string, { speaker: string; text: string; color: string }[]> = {

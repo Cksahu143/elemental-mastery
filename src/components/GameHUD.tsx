@@ -1,5 +1,5 @@
 import { PlayerState, ElementType, ELEMENT_COLORS, ZONE_NAMES, SKILLS } from '../game/types';
-import { switchElement, getActiveSkills } from '../game/engine';
+import { switchElement, getActiveSkills, getCameraMode, setCameraMode, type CameraMode } from '../game/engine';
 
 interface GameHUDProps {
   player: PlayerState;
@@ -102,6 +102,17 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
           className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
         >
           Menu
+        </button>
+        <button
+          onClick={() => {
+            const modes: CameraMode[] = ['2d', 'isometric'];
+            const cur = getCameraMode();
+            const next = modes[(modes.indexOf(cur) + 1) % modes.length];
+            setCameraMode(next);
+          }}
+          className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+        >
+          {getCameraMode() === '2d' ? '2D' : 'ISO'}
         </button>
       </div>
 

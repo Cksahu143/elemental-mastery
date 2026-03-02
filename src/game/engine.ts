@@ -66,8 +66,12 @@ export function getPlayer(): PlayerState { return player; }
 export function getFloor(): number { return floor; }
 export function getRoom(): GameRoom { return room; }
 
+// Track applied kingdom bonuses so we can strip them when saving
+let appliedKingdomBonuses: KingdomBonuses = { attackBonus: 0, hpBonus: 0, manaBonus: 0, xpMultiplier: 1, goldMultiplier: 1, hpRegen: 0, manaRegen: 0, defenseBonus: 0, elemPowerBonus: 0, speedBonus: 0, costReduction: 1 };
+
 export function initGame(save: SaveData, kingdomBonuses?: KingdomBonuses) {
   const kb = kingdomBonuses;
+  appliedKingdomBonuses = kb ? { ...kb } : { attackBonus: 0, hpBonus: 0, manaBonus: 0, xpMultiplier: 1, goldMultiplier: 1, hpRegen: 0, manaRegen: 0, defenseBonus: 0, elemPowerBonus: 0, speedBonus: 0, costReduction: 1 };
   player = {
     pos: { x: 0, y: 0 },
     hp: Math.min(save.hp + (kb?.hpBonus ?? 0), save.maxHp + (kb?.hpBonus ?? 0)),
@@ -77,7 +81,7 @@ export function initGame(save: SaveData, kingdomBonuses?: KingdomBonuses) {
     xp: save.xp,
     xpToNext: save.xpToNext,
     level: save.level,
-    stats: { ...save.stats, attack: save.stats.attack + (kb?.attackBonus ?? 0) },
+    stats: { ...save.stats, attack: save.stats.attack + (kb?.attackBonus ?? 0), defense: save.stats.defense + (kb?.defenseBonus ?? 0), elementalPower: save.stats.elementalPower + (kb?.elemPowerBonus ?? 0), speed: save.stats.speed + (kb?.speedBonus ?? 0) },
     statPoints: save.statPoints,
     element: save.currentZone,
     unlockedElements: [...save.unlockedElements],
@@ -130,9 +134,16 @@ export function nextRoom() {
 }
 
 export function getSaveData(): SaveData {
+  // Strip kingdom bonuses before saving to prevent stacking on reload
+  const kb = appliedKingdomBonuses;
   return {
     level: player.level,
-    stats: { ...player.stats },
+    stats: {
+      attack: player.stats.attack - kb.attackBonus,
+      defense: player.stats.defense - kb.defenseBonus,
+      speed: player.stats.speed - kb.speedBonus,
+      elementalPower: player.stats.elementalPower - kb.elemPowerBonus,
+    },
     statPoints: player.statPoints,
     unlockedElements: [...player.unlockedElements],
     skills: [...player.skills],
@@ -140,10 +151,10 @@ export function getSaveData(): SaveData {
     bossesDefeated: [],
     currentZone: player.element,
     currentFloor: floor,
-    hp: player.hp,
-    maxHp: player.maxHp,
-    mana: player.mana,
-    maxMana: player.maxMana,
+    hp: Math.min(player.hp, player.maxHp - kb.hpBonus),
+    maxHp: player.maxHp - kb.hpBonus,
+    mana: Math.min(player.mana, player.maxMana - kb.manaBonus),
+    maxMana: player.maxMana - kb.manaBonus,
     xp: player.xp,
     xpToNext: player.xpToNext,
   };
@@ -762,6 +773,87 @@ function updateEnemy(enemy: Enemy, dt: number) {
           }
           screenShake = 15;
         }, pullDuration);
+      } else if (enemy.element === 'earth') {
+        // Seismic Slam — ground spikes erupt in cross pattern
+        const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+        for (const [ddx, ddy] of dirs) {
+          for (let i = 1; i <= 6; i++) {
+            setTimeout(() => {
+              const sx = enemy.pos.x + 12 + ddx * i * TILE_SIZE * 0.7;
+              const sy = enemy.pos.y + 12 + ddy * i * TILE_SIZE * 0.7;
+              projectiles.push({
+                id: `proj_${projIdCounter++}`, pos: { x: sx, y: sy },
+                vel: { x: 0, y: 0 }, damage: enemy.damage * 1.2,
+                element: 'earth', fromPlayer: false, lifetime: 0.6, radius: 18,
+              });
+              for (let p = 0; p < 4; p++) {
+                particles.push({
+                  x: sx, y: sy, vx: (Math.random()-0.5)*80, vy: -40-Math.random()*60,
+                  life: 0.5, maxLife: 0.5, color: '#D97706', size: 4,
+                });
+              }
+              screenShake = 4;
+            }, i * 120);
+          }
+        }
+      } else if (enemy.element === 'wind') {
+        // Tornado Barrage — spinning projectile spiral
+        for (let i = 0; i < 24; i++) {
+          setTimeout(() => {
+            const angle = (i / 24) * Math.PI * 6;
+            projectiles.push({
+              id: `proj_${projIdCounter++}`,
+              pos: { x: enemy.pos.x + 12, y: enemy.pos.y + 12 },
+              vel: { x: Math.cos(angle) * (100 + i * 5), y: Math.sin(angle) * (100 + i * 5) },
+              damage: enemy.damage * 0.9, element: 'wind', fromPlayer: false, lifetime: 2, radius: 6,
+            });
+          }, i * 80);
+        }
+      } else if (enemy.element === 'nature') {
+        // Vine Eruption — roots from multiple ground points
+        for (let i = 0; i < 10; i++) {
+          const rx = (2 + Math.random() * (room.width - 4)) * TILE_SIZE;
+          const ry = (2 + Math.random() * (room.height - 4)) * TILE_SIZE;
+          setTimeout(() => {
+            // Mark hazard tiles
+            const tx = Math.floor(rx / TILE_SIZE);
+            const ty = Math.floor(ry / TILE_SIZE);
+            if (tx > 0 && tx < room.width - 1 && ty > 0 && ty < room.height - 1) {
+              room.tiles[ty][tx] = 2;
+            }
+            projectiles.push({
+              id: `proj_${projIdCounter++}`, pos: { x: rx, y: ry },
+              vel: { x: 0, y: 0 }, damage: enemy.damage * 1.1,
+              element: 'nature', fromPlayer: false, lifetime: 0.8, radius: 22,
+            });
+            for (let p = 0; p < 6; p++) {
+              particles.push({
+                x: rx, y: ry, vx: (Math.random()-0.5)*60, vy: -50-Math.random()*40,
+                life: 0.6, maxLife: 0.6, color: '#22C55E', size: 4,
+              });
+            }
+          }, i * 200);
+        }
+      } else if (enemy.element === 'void') {
+        // Reality Collapse — everything distorts, random teleport attacks
+        for (let i = 0; i < 20; i++) {
+          setTimeout(() => {
+            const rx = (1 + Math.random() * (room.width - 2)) * TILE_SIZE;
+            const ry = (1 + Math.random() * (room.height - 2)) * TILE_SIZE;
+            projectiles.push({
+              id: `proj_${projIdCounter++}`, pos: { x: rx, y: ry },
+              vel: { x: (Math.random()-0.5)*100, y: (Math.random()-0.5)*100 },
+              damage: enemy.damage * 1.5, element: 'void', fromPlayer: false, lifetime: 1.2, radius: 12,
+            });
+            for (let p = 0; p < 5; p++) {
+              particles.push({
+                x: rx, y: ry, vx: (Math.random()-0.5)*120, vy: (Math.random()-0.5)*120,
+                life: 0.5, maxLife: 0.5, color: '#EC4899', size: 5,
+              });
+            }
+            screenShake = 6;
+          }, i * 150);
+        }
       }
 
       // Expand arena hazards
@@ -922,14 +1014,22 @@ function onEnemyKill(enemy: Enemy) {
   }
 
   if (enemy.isBoss) {
-    const loreId = `guardian_${enemy.element === 'fire' ? 'ignis' : enemy.element === 'ice' ? 'glacius' : enemy.element === 'lightning' ? 'voltaris' : 'umbra'}`;
-    onLoreFound?.(loreId);
+    const BOSS_LORE_MAP: Record<string, string> = {
+      fire: 'guardian_ignis', ice: 'guardian_glacius', lightning: 'guardian_voltaris', shadow: 'guardian_umbra',
+      earth: 'guardian_terrath', wind: 'guardian_zephyros', nature: 'guardian_sylvara', void: 'guardian_nullex',
+    };
+    const loreId = BOSS_LORE_MAP[enemy.element];
+    if (loreId) onLoreFound?.(loreId);
     // Also unlock the fall/extra lore
     const extraLore: Record<string, string> = {
       fire: 'guardian_ignis_fall',
       ice: 'guardian_glacius_archive',
       lightning: 'guardian_voltaris_warning',
       shadow: 'guardian_umbra_sacrifice',
+      earth: 'guardian_terrath_legacy',
+      wind: 'guardian_zephyros_song',
+      nature: 'guardian_sylvara_grief',
+      void: 'guardian_nullex_origin',
     };
     if (extraLore[enemy.element]) onLoreFound?.(extraLore[enemy.element]);
     
@@ -980,6 +1080,12 @@ function dist(a: Position, b: Position): number {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 }
 
+// ─── Camera mode ───
+export type CameraMode = '2d' | 'isometric' | '3d';
+let cameraMode: CameraMode = '2d';
+export function setCameraMode(mode: CameraMode) { cameraMode = mode; }
+export function getCameraMode(): CameraMode { return cameraMode; }
+
 // ─── Render ───
 export function render(ctx: CanvasRenderingContext2D) {
   if (!player || !room) return;
@@ -989,7 +1095,15 @@ export function render(ctx: CanvasRenderingContext2D) {
   // Screen shake
   const shakeX = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
   const shakeY = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
-  ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
+
+  if (cameraMode === 'isometric') {
+    // 2.5D isometric: translate to center, apply isometric skew
+    ctx.translate(CANVAS_WIDTH / 2 + shakeX, CANVAS_HEIGHT * 0.15 + shakeY);
+    ctx.scale(1, 0.6); // squash Y for isometric feel
+    ctx.translate(-camera.x - CANVAS_WIDTH / 2, -camera.y - CANVAS_HEIGHT / 2);
+  } else {
+    ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
+  }
 
   // Tiles
   for (let y = 0; y < room.height; y++) {
@@ -1001,8 +1115,17 @@ export function render(ctx: CanvasRenderingContext2D) {
         ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
         
         if (room.tiles[y][x] === 1) {
-          ctx.fillStyle = 'rgba(0,0,0,0.3)';
-          ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE + TILE_SIZE - 4, TILE_SIZE, 4);
+          if (cameraMode === 'isometric') {
+            // Draw wall "height" for isometric look
+            const wallH = 16;
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - wallH, TILE_SIZE, wallH);
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - wallH, TILE_SIZE, 2);
+          } else {
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE + TILE_SIZE - 4, TILE_SIZE, 4);
+          }
         }
         if (room.tiles[y][x] === 2) {
           ctx.globalAlpha = 0.3 + Math.sin(gameTime * 3 + x + y) * 0.2;

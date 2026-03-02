@@ -6,7 +6,11 @@ export type BuildingId =
   | 'arcane_well' // Increases max mana
   | 'watchtower'  // Increases XP gain
   | 'vault'       // Increases gold/resources gain
-  | 'shrine';     // Passive regen during runs
+  | 'shrine'      // Passive regen during runs
+  | 'barracks'    // Increases defense
+  | 'library'     // Increases elemental power
+  | 'market'      // Reduces upgrade costs
+  | 'beacon';     // Increases dash & speed
 
 export interface Building {
   id: BuildingId;
@@ -78,6 +82,42 @@ export const BUILDINGS: Building[] = [
     costPerLevel: [100, 240, 450, 750],
     bonusPerLevel: ['0.5 HP/s regen', '1 HP/s regen', '1 HP/s + 0.5 Mana/s', '2 HP/s + 1 Mana/s'],
   },
+  {
+    id: 'barracks',
+    name: 'War Barracks',
+    description: 'Train defenders to bolster your armor in battle.',
+    icon: '🛡️',
+    maxLevel: 5,
+    costPerLevel: [60, 140, 260, 420, 650],
+    bonusPerLevel: ['+3 Defense', '+6 Defense', '+10 Defense', '+15 Defense', '+21 Defense'],
+  },
+  {
+    id: 'library',
+    name: 'Arcane Library',
+    description: 'Ancient tomes amplify your elemental power.',
+    icon: '📚',
+    maxLevel: 5,
+    costPerLevel: [70, 160, 280, 460, 700],
+    bonusPerLevel: ['+4 Elem Power', '+9 Elem Power', '+15 Elem Power', '+22 Elem Power', '+30 Elem Power'],
+  },
+  {
+    id: 'market',
+    name: 'Trade Market',
+    description: 'Merchants bring rare goods, reducing building costs.',
+    icon: '🏪',
+    maxLevel: 3,
+    costPerLevel: [150, 400, 800],
+    bonusPerLevel: ['-10% Build Costs', '-20% Build Costs', '-30% Build Costs'],
+  },
+  {
+    id: 'beacon',
+    name: 'Speed Beacon',
+    description: 'Enchanted beacon empowers your agility and dash recovery.',
+    icon: '⚡',
+    maxLevel: 4,
+    costPerLevel: [80, 200, 380, 600],
+    bonusPerLevel: ['+1 Speed', '+2 Speed', '+3 Speed', '+5 Speed'],
+  },
 ];
 
 export function getDefaultKingdom(): KingdomState {
@@ -90,6 +130,10 @@ export function getDefaultKingdom(): KingdomState {
       watchtower: 0,
       vault: 0,
       shrine: 0,
+      barracks: 0,
+      library: 0,
+      market: 0,
+      beacon: 0,
     },
   };
 }
@@ -104,7 +148,13 @@ export function loadKingdom(): KingdomState {
   const raw = localStorage.getItem(KINGDOM_KEY);
   if (!raw) return getDefaultKingdom();
   try {
-    return JSON.parse(raw) as KingdomState;
+    const saved = JSON.parse(raw) as KingdomState;
+    // Merge with defaults to handle new buildings added in updates
+    const defaults = getDefaultKingdom();
+    return {
+      gold: saved.gold ?? 0,
+      buildings: { ...defaults.buildings, ...saved.buildings },
+    };
   } catch {
     return getDefaultKingdom();
   }
@@ -119,6 +169,10 @@ export interface KingdomBonuses {
   goldMultiplier: number;
   hpRegen: number;
   manaRegen: number;
+  defenseBonus: number;
+  elemPowerBonus: number;
+  speedBonus: number;
+  costReduction: number;
 }
 
 const ATTACK_BONUS = [0, 5, 10, 16, 23, 32];
@@ -128,6 +182,10 @@ const XP_MULT = [1, 1.15, 1.30, 1.50, 1.75];
 const GOLD_MULT = [1, 1.20, 1.45, 1.75, 2.20];
 const HP_REGEN = [0, 0.5, 1, 1, 2];
 const MANA_REGEN = [0, 0, 0, 0.5, 1];
+const DEFENSE_BONUS = [0, 3, 6, 10, 15, 21];
+const ELEM_POWER_BONUS = [0, 4, 9, 15, 22, 30];
+const SPEED_BONUS = [0, 1, 2, 3, 5];
+const COST_REDUCTION = [1, 0.9, 0.8, 0.7];
 
 export function getKingdomBonuses(kingdom: KingdomState): KingdomBonuses {
   const bl = kingdom.buildings;
@@ -139,6 +197,10 @@ export function getKingdomBonuses(kingdom: KingdomState): KingdomBonuses {
     goldMultiplier: GOLD_MULT[bl.vault] ?? 1,
     hpRegen: HP_REGEN[bl.shrine] ?? 0,
     manaRegen: MANA_REGEN[bl.shrine] ?? 0,
+    defenseBonus: DEFENSE_BONUS[bl.barracks] ?? 0,
+    elemPowerBonus: ELEM_POWER_BONUS[bl.library] ?? 0,
+    speedBonus: SPEED_BONUS[bl.beacon] ?? 0,
+    costReduction: COST_REDUCTION[bl.market] ?? 1,
   };
 }
 
