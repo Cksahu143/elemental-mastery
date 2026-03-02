@@ -48,12 +48,16 @@ const BOSS_NAMES: Record<ElementType, string> = {
 
 // Building positions on the map (percentage-based)
 const BUILDING_POSITIONS: Record<BuildingId, { x: number; y: number }> = {
-  forge:      { x: 18, y: 55 },
-  sanctuary:  { x: 38, y: 35 },
-  arcane_well:{ x: 62, y: 35 },
-  watchtower: { x: 82, y: 28 },
-  vault:      { x: 72, y: 65 },
-  shrine:     { x: 35, y: 68 },
+  forge:      { x: 15, y: 45 },
+  sanctuary:  { x: 35, y: 30 },
+  arcane_well:{ x: 55, y: 30 },
+  watchtower: { x: 80, y: 25 },
+  vault:      { x: 70, y: 60 },
+  shrine:     { x: 30, y: 65 },
+  barracks:   { x: 50, y: 55 },
+  library:    { x: 20, y: 75 },
+  market:     { x: 65, y: 78 },
+  beacon:     { x: 85, y: 50 },
 };
 
 // Building visual representations at each level
@@ -81,6 +85,22 @@ const BUILDING_VISUALS: Record<BuildingId, { levels: string[]; colors: string[] 
   shrine: {
     levels: ['🔮', '🕯️', '🌙🔮', '⭐🔮', '🌌🔮'],
     colors: ['#EC4899', '#DB2777', '#BE185D', '#9D174D', '#F472B6'],
+  },
+  barracks: {
+    levels: ['🛡️', '⚔️🛡️', '🏰🛡️', '🗡️🛡️', '👑🛡️'],
+    colors: ['#94A3B8', '#64748B', '#475569', '#334155', '#CBD5E1'],
+  },
+  library: {
+    levels: ['📚', '📖📚', '✨📚', '🌟📚', '💫📚'],
+    colors: ['#A78BFA', '#8B5CF6', '#7C3AED', '#6D28D9', '#C4B5FD'],
+  },
+  market: {
+    levels: ['🏪', '🏬', '🏛️🏪'],
+    colors: ['#FBBF24', '#F59E0B', '#D97706'],
+  },
+  beacon: {
+    levels: ['⚡', '💨⚡', '🌪️⚡', '🌟⚡'],
+    colors: ['#34D399', '#10B981', '#059669', '#047857'],
   },
 };
 
@@ -258,12 +278,17 @@ function KingdomMapCanvas({ zoneColor }: { zoneColor: string }) {
 
       // Glowing ground paths (dirt roads between buildings)
       const paths: [number, number, number, number][] = [
-        [0.18, 0.55, 0.38, 0.35],
-        [0.38, 0.35, 0.62, 0.35],
-        [0.62, 0.35, 0.82, 0.28],
-        [0.38, 0.35, 0.35, 0.68],
-        [0.35, 0.68, 0.72, 0.65],
-        [0.62, 0.35, 0.72, 0.65],
+        [0.15, 0.45, 0.35, 0.30],
+        [0.35, 0.30, 0.55, 0.30],
+        [0.55, 0.30, 0.80, 0.25],
+        [0.35, 0.30, 0.30, 0.65],
+        [0.30, 0.65, 0.70, 0.60],
+        [0.55, 0.30, 0.70, 0.60],
+        [0.50, 0.55, 0.30, 0.65],
+        [0.50, 0.55, 0.70, 0.60],
+        [0.20, 0.75, 0.30, 0.65],
+        [0.65, 0.78, 0.70, 0.60],
+        [0.80, 0.25, 0.85, 0.50],
       ];
       ctx.save();
       ctx.lineWidth = 3;

@@ -228,6 +228,42 @@ const ZONE_AMBIENCE: Record<string, ZoneAmbience> = {
     melodyVol: 0.03,
     droneVol: 0.025,
   },
+  earth: {
+    scale: [147, 165, 196, 220, 247, 294, 330],
+    droneFreqs: [73, 55],
+    tempo: 3800,
+    type: 'triangle',
+    droneType: 'sawtooth',
+    melodyVol: 0.03,
+    droneVol: 0.025,
+  },
+  wind: {
+    scale: [392, 440, 494, 523, 587, 659, 784],
+    droneFreqs: [196, 131],
+    tempo: 2800,
+    type: 'sine',
+    droneType: 'triangle',
+    melodyVol: 0.025,
+    droneVol: 0.018,
+  },
+  nature: {
+    scale: [262, 294, 330, 349, 392, 440, 523],
+    droneFreqs: [131, 98],
+    tempo: 3200,
+    type: 'sine',
+    droneType: 'sine',
+    melodyVol: 0.028,
+    droneVol: 0.02,
+  },
+  void: {
+    scale: [185, 196, 220, 233, 262, 277, 311],
+    droneFreqs: [49, 62],
+    tempo: 4500,
+    type: 'sawtooth',
+    droneType: 'sawtooth',
+    melodyVol: 0.02,
+    droneVol: 0.03,
+  },
 };
 
 export function startAmbientMusic(zone: string) {
@@ -276,9 +312,30 @@ export function startAmbientMusic(zone: string) {
         playTone(40 + Math.random() * 30, 0.6, 'sawtooth', 0.03);
       }
     } else if (zone === 'shadow') {
-      // Eerie whispers (filtered noise)
       if (Math.random() < 0.2) {
         playFilteredNoise(0.3, 0.015, 800, 'bandpass');
+      }
+    } else if (zone === 'earth') {
+      // Deep rumbles
+      if (Math.random() < 0.2) {
+        playTone(50 + Math.random() * 20, 0.5, 'sawtooth', 0.02);
+      }
+    } else if (zone === 'wind') {
+      // Whooshing
+      if (Math.random() < 0.3) {
+        playFilteredNoise(0.4, 0.02, 1200, 'bandpass');
+      }
+    } else if (zone === 'nature') {
+      // Birds / chimes
+      if (Math.random() < 0.25) {
+        const chime = config.scale[Math.floor(Math.random() * 3) + 4];
+        playNote(chime * 2, 0.5, 'sine', 0.012, 0.01, 0.3);
+      }
+    } else if (zone === 'void') {
+      // Deep unsettling pulses
+      if (Math.random() < 0.2) {
+        playTone(35 + Math.random() * 15, 0.8, 'sawtooth', 0.025);
+        playFilteredNoise(0.2, 0.01, 500, 'bandpass');
       }
     }
   }, 2000);
@@ -355,6 +412,54 @@ const BOSS_TRACKS: Record<string, BossTrack> = {
     bassVol: 0.1,
     leadVol: 0.04,
     drumIntensity: 0.75,
+    flavor: 'dark',
+  },
+  earth: {
+    bpm: 110,
+    scale: [82.4, 98, 110, 123.5, 130.8, 146.8, 165, 174.6, 196, 220, 247],
+    bassPattern: [0, 0, 3, 2, 4, 4, 2, 3],
+    melodyPattern: [6, -1, 7, -1, 8, 7, -1, 6, 9, -1, -1, 8, 7, -1, 6, -1],
+    bassType: 'sawtooth',
+    leadType: 'triangle',
+    bassVol: 0.1,
+    leadVol: 0.04,
+    drumIntensity: 0.85,
+    flavor: 'aggressive',
+  },
+  wind: {
+    bpm: 165,
+    scale: [196, 220, 247, 261.6, 293.7, 329.6, 349.2, 392, 440, 494, 523],
+    bassPattern: [0, 2, 4, 2, 0, 3, 5, 3],
+    melodyPattern: [7, 8, 9, -1, 10, 9, 8, -1, 7, 6, -1, 8, 9, -1, 7, 6],
+    bassType: 'triangle',
+    leadType: 'sawtooth',
+    bassVol: 0.07,
+    leadVol: 0.045,
+    drumIntensity: 0.9,
+    flavor: 'frantic',
+  },
+  nature: {
+    bpm: 140,
+    scale: [131, 147, 165, 175, 196, 220, 247, 262, 294, 330, 349],
+    bassPattern: [0, 0, 4, 3, 5, 5, 3, 2],
+    melodyPattern: [7, 8, -1, 9, 8, 7, -1, 6, 8, -1, 9, 10, -1, 8, 7, -1],
+    bassType: 'triangle',
+    leadType: 'sine',
+    bassVol: 0.08,
+    leadVol: 0.04,
+    drumIntensity: 0.8,
+    flavor: 'ominous',
+  },
+  void: {
+    bpm: 100,
+    scale: [73.4, 82.4, 87.3, 98, 110, 116.5, 123.5, 131, 147, 165, 175],
+    bassPattern: [0, 1, 0, 3, 2, 1, 4, 0],
+    melodyPattern: [7, -1, -1, 8, -1, 6, -1, -1, 9, -1, 7, -1, -1, 6, -1, 5],
+    bassType: 'sawtooth',
+    leadType: 'sawtooth',
+    bassVol: 0.11,
+    leadVol: 0.035,
+    drumIntensity: 0.7,
     flavor: 'dark',
   },
 };
