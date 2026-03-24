@@ -119,6 +119,7 @@ function loadRoom(zone: ElementType, fl: number) {
   projectiles = [];
   damageNumbers = [];
   particles = [];
+  resetAmbient();
   
   if (isBoss && !bossDialogueShown) {
     bossDialogueShown = true;
