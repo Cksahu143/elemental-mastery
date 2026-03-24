@@ -282,13 +282,17 @@ export default function GameCanvas() {
       <SceneBackground zone={currentZone} />
 
       <div className="relative" style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}>
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_WIDTH}
-          height={CANVAS_HEIGHT}
-          className="border border-border cursor-crosshair"
-          style={{ imageRendering: 'pixelated' }}
-        />
+        {getCameraMode() === '3d' ? (
+          <Game3DCanvas gameTime={getGameTime()} />
+        ) : (
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
+            className="border border-border cursor-crosshair"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        )}
         {player && (
           <GameHUD
             player={player}
