@@ -105,7 +105,7 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
         </button>
         <button
           onClick={() => {
-            const modes: CameraMode[] = ['2d', 'isometric'];
+            const modes: CameraMode[] = ['2d', 'isometric', '3d'];
             const cur = getCameraMode();
             const next = modes[(modes.indexOf(cur) + 1) % modes.length];
             setCameraMode(next);
