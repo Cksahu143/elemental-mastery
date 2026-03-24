@@ -134,7 +134,7 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
                 }}
                 title={`Switch to ${el}`}
               >
-                {el === 'fire' ? '🔥' : el === 'ice' ? '❄' : el === 'lightning' ? '⚡' : '🌑'}
+                {el === 'fire' ? '🔥' : el === 'ice' ? '❄' : el === 'lightning' ? '⚡' : el === 'shadow' ? '🌑' : el === 'earth' ? '🪨' : el === 'wind' ? '🌀' : el === 'nature' ? '🌿' : '🕳️'}
               </button>
             ))}
           </div>
