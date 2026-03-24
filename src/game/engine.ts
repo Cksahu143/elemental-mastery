@@ -7,6 +7,8 @@ import { generateRoom, getTileColor } from './dungeon';
 import { SaveData } from './types';
 import { SFX, startAmbientMusic, startBossMusic, stopBossMusic } from './audio';
 import type { KingdomBonuses } from './kingdom';
+import { initSprites, drawPlayer, drawEnemy, drawTile } from './sprites';
+import { updateAmbient, renderAmbient, renderIceFrost, renderHeatDistortion, resetAmbient } from './environment';
 
 // ─── Input tracking ───
 const keys: Record<string, boolean> = {};
