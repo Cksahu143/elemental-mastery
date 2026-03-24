@@ -184,6 +184,9 @@ export function update(dt: number) {
   if (!player || !room) return;
   gameTime += dt;
 
+  // Update ambient environment effects
+  updateAmbient(dt, player.element, camera, room.width, room.height);
+
   // Kingdom shrine passive regen
   if (kingdomHpRegen > 0) player.hp = Math.min(player.maxHp, player.hp + kingdomHpRegen * dt);
   if (kingdomManaRegen > 0) player.mana = Math.min(player.maxMana, player.mana + kingdomManaRegen * dt);
