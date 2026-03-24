@@ -19,6 +19,7 @@ import StoryCutscene from './StoryCutscene';
 import SceneBackground from './SceneBackground';
 import KingdomHub from './KingdomHub';
 import IntroCutscene from './IntroCutscene';
+import Game3DCanvas from './Game3DCanvas';
 
 type GamePhase = 'title' | 'intro' | 'playing' | 'paused';
 
