@@ -1089,12 +1089,10 @@ function dist(a: Position, b: Position): number {
 
 // ─── Camera mode ───
 export type CameraMode = '2d' | 'isometric' | '3d';
-export type CameraMode = '2d' | 'isometric' | '3d';
 let cameraMode: CameraMode = '2d';
 export function setCameraMode(mode: CameraMode) { cameraMode = mode; }
 export function getCameraMode(): CameraMode { return cameraMode; }
 export function getGameTime(): number { return gameTime; }
-export function getCameraMode(): CameraMode { return cameraMode; }
 
 // ─── Render ───
 export function render(ctx: CanvasRenderingContext2D) {
