@@ -112,7 +112,7 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
           }}
           className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
         >
-          {getCameraMode() === '2d' ? '2D' : 'ISO'}
+          {getCameraMode() === '2d' ? '2D' : getCameraMode() === 'isometric' ? 'ISO' : '3D'}
         </button>
       </div>
 
