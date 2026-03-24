@@ -73,6 +73,7 @@ let appliedKingdomBonuses: KingdomBonuses = { attackBonus: 0, hpBonus: 0, manaBo
 
 export function initGame(save: SaveData, kingdomBonuses?: KingdomBonuses) {
   initSprites();
+  const kb = kingdomBonuses;
   appliedKingdomBonuses = kb ? { ...kb } : { attackBonus: 0, hpBonus: 0, manaBonus: 0, xpMultiplier: 1, goldMultiplier: 1, hpRegen: 0, manaRegen: 0, defenseBonus: 0, elemPowerBonus: 0, speedBonus: 0, costReduction: 1 };
   player = {
     pos: { x: 0, y: 0 },
