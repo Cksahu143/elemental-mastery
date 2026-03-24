@@ -105,14 +105,14 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
         </button>
         <button
           onClick={() => {
-            const modes: CameraMode[] = ['2d', 'isometric'];
+            const modes: CameraMode[] = ['2d', 'isometric', '3d'];
             const cur = getCameraMode();
             const next = modes[(modes.indexOf(cur) + 1) % modes.length];
             setCameraMode(next);
           }}
           className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
         >
-          {getCameraMode() === '2d' ? '2D' : 'ISO'}
+          {getCameraMode() === '2d' ? '2D' : getCameraMode() === 'isometric' ? 'ISO' : '3D'}
         </button>
       </div>
 
@@ -134,7 +134,7 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
                 }}
                 title={`Switch to ${el}`}
               >
-                {el === 'fire' ? '🔥' : el === 'ice' ? '❄' : el === 'lightning' ? '⚡' : '🌑'}
+                {el === 'fire' ? '🔥' : el === 'ice' ? '❄' : el === 'lightning' ? '⚡' : el === 'shadow' ? '🌑' : el === 'earth' ? '🪨' : el === 'wind' ? '🌀' : el === 'nature' ? '🌿' : '🕳️'}
               </button>
             ))}
           </div>

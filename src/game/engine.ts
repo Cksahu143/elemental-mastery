@@ -7,6 +7,8 @@ import { generateRoom, getTileColor } from './dungeon';
 import { SaveData } from './types';
 import { SFX, startAmbientMusic, startBossMusic, stopBossMusic } from './audio';
 import type { KingdomBonuses } from './kingdom';
+import { initSprites, drawPlayer, drawEnemy, drawTile } from './sprites';
+import { updateAmbient, renderAmbient, renderIceFrost, renderHeatDistortion, resetAmbient } from './environment';
 
 // ─── Input tracking ───
 const keys: Record<string, boolean> = {};
@@ -70,6 +72,7 @@ export function getRoom(): GameRoom { return room; }
 let appliedKingdomBonuses: KingdomBonuses = { attackBonus: 0, hpBonus: 0, manaBonus: 0, xpMultiplier: 1, goldMultiplier: 1, hpRegen: 0, manaRegen: 0, defenseBonus: 0, elemPowerBonus: 0, speedBonus: 0, costReduction: 1 };
 
 export function initGame(save: SaveData, kingdomBonuses?: KingdomBonuses) {
+  initSprites();
   const kb = kingdomBonuses;
   appliedKingdomBonuses = kb ? { ...kb } : { attackBonus: 0, hpBonus: 0, manaBonus: 0, xpMultiplier: 1, goldMultiplier: 1, hpRegen: 0, manaRegen: 0, defenseBonus: 0, elemPowerBonus: 0, speedBonus: 0, costReduction: 1 };
   player = {
@@ -117,6 +120,7 @@ function loadRoom(zone: ElementType, fl: number) {
   projectiles = [];
   damageNumbers = [];
   particles = [];
+  resetAmbient();
   
   if (isBoss && !bossDialogueShown) {
     bossDialogueShown = true;
@@ -179,6 +183,9 @@ export function allocateStat(stat: keyof PlayerState['stats']) {
 export function update(dt: number) {
   if (!player || !room) return;
   gameTime += dt;
+
+  // Update ambient environment effects
+  updateAmbient(dt, player.element, camera, room.width, room.height);
 
   // Kingdom shrine passive regen
   if (kingdomHpRegen > 0) player.hp = Math.min(player.maxHp, player.hp + kingdomHpRegen * dt);
@@ -1085,6 +1092,7 @@ export type CameraMode = '2d' | 'isometric' | '3d';
 let cameraMode: CameraMode = '2d';
 export function setCameraMode(mode: CameraMode) { cameraMode = mode; }
 export function getCameraMode(): CameraMode { return cameraMode; }
+export function getGameTime(): number { return gameTime; }
 
 // ─── Render ───
 export function render(ctx: CanvasRenderingContext2D) {
@@ -1096,43 +1104,23 @@ export function render(ctx: CanvasRenderingContext2D) {
   const shakeX = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
   const shakeY = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
 
-  if (cameraMode === 'isometric') {
-    // 2.5D isometric: translate to center, apply isometric skew
+  const isIso = cameraMode === 'isometric';
+
+  if (isIso) {
     ctx.translate(CANVAS_WIDTH / 2 + shakeX, CANVAS_HEIGHT * 0.15 + shakeY);
-    ctx.scale(1, 0.6); // squash Y for isometric feel
+    ctx.scale(1, 0.6);
     ctx.translate(-camera.x - CANVAS_WIDTH / 2, -camera.y - CANVAS_HEIGHT / 2);
   } else {
     ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
   }
 
-  // Tiles
+  // Enhanced Tiles
   for (let y = 0; y < room.height; y++) {
     for (let x = 0; x < room.width; x++) {
       const sx = x * TILE_SIZE - camera.x;
       const sy = y * TILE_SIZE - camera.y;
       if (sx > -TILE_SIZE && sx < CANVAS_WIDTH + TILE_SIZE && sy > -TILE_SIZE && sy < CANVAS_HEIGHT + TILE_SIZE) {
-        ctx.fillStyle = getTileColor(room.tiles[y][x], room.zone);
-        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        
-        if (room.tiles[y][x] === 1) {
-          if (cameraMode === 'isometric') {
-            // Draw wall "height" for isometric look
-            const wallH = 16;
-            ctx.fillStyle = 'rgba(0,0,0,0.4)';
-            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - wallH, TILE_SIZE, wallH);
-            ctx.fillStyle = 'rgba(0,0,0,0.15)';
-            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - wallH, TILE_SIZE, 2);
-          } else {
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE + TILE_SIZE - 4, TILE_SIZE, 4);
-          }
-        }
-        if (room.tiles[y][x] === 2) {
-          ctx.globalAlpha = 0.3 + Math.sin(gameTime * 3 + x + y) * 0.2;
-          ctx.fillStyle = ELEMENT_COLORS[room.zone];
-          ctx.fillRect(x * TILE_SIZE + 4, y * TILE_SIZE + 4, TILE_SIZE - 8, TILE_SIZE - 8);
-          ctx.globalAlpha = 1;
-        }
+        drawTile(ctx, room.tiles[y][x], room.zone, x, y, gameTime, isIso);
       }
     }
   }
@@ -1140,170 +1128,91 @@ export function render(ctx: CanvasRenderingContext2D) {
   // Exit indicator
   if (room.cleared) {
     for (const exit of room.exits) {
-      ctx.fillStyle = `rgba(100, 255, 100, ${0.5 + Math.sin(gameTime * 4) * 0.3})`;
+      // Glowing exit portal
+      const pulse = 0.5 + Math.sin(gameTime * 4) * 0.3;
+      ctx.shadowColor = '#4ade80';
+      ctx.shadowBlur = 15 + Math.sin(gameTime * 3) * 5;
+      ctx.fillStyle = `rgba(74, 222, 128, ${pulse})`;
       ctx.fillRect(exit.x * TILE_SIZE + 4, exit.y * TILE_SIZE + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+      ctx.shadowBlur = 0;
+      // Arrow
       ctx.fillStyle = '#fff';
-      ctx.font = '10px Rajdhani';
-      ctx.textAlign = 'center';
-      ctx.fillText('EXIT', exit.x * TILE_SIZE + TILE_SIZE / 2, exit.y * TILE_SIZE + TILE_SIZE / 2 + 4);
-    }
-  }
-
-  // Enemies
-  for (const enemy of room.enemies) {
-    if (enemy.hp <= 0) continue;
-    const color = ELEMENT_COLORS[enemy.element];
-    const darkColor = ELEMENT_COLORS_DARK[enemy.element];
-    
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath();
-    ctx.ellipse(enemy.pos.x + 12, enemy.pos.y + 26, 10, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Body
-    const size = enemy.isBoss ? 32 : enemy.type === 'tank' ? 28 : 24;
-    const offset = (size - 24) / 2;
-    ctx.fillStyle = darkColor;
-    ctx.fillRect(enemy.pos.x - offset, enemy.pos.y - offset, size, size);
-    ctx.fillStyle = color;
-    ctx.fillRect(enemy.pos.x - offset + 2, enemy.pos.y - offset + 2, size - 4, size - 4);
-    
-    // Enemy type indicator
-    ctx.fillStyle = '#000';
-    ctx.font = `${enemy.isBoss ? '14' : '10'}px Rajdhani`;
-    ctx.textAlign = 'center';
-    const typeChar = enemy.type === 'melee' ? '⚔' : enemy.type === 'ranged' ? '◎' : enemy.type === 'assassin' ? '☆' : enemy.type === 'tank' ? '■' : enemy.isBoss ? '♛' : '◆';
-    ctx.fillText(typeChar, enemy.pos.x + 12, enemy.pos.y + 16);
-    
-    // HP bar
-    if (enemy.hp < enemy.maxHp) {
-      const barW = size + 4;
-      const barH = 3;
-      const barX = enemy.pos.x - offset - 2;
-      const barY = enemy.pos.y - offset - 8;
-      ctx.fillStyle = '#000';
-      ctx.fillRect(barX, barY, barW, barH);
-      ctx.fillStyle = '#ff3333';
-      ctx.fillRect(barX, barY, barW * (enemy.hp / enemy.maxHp), barH);
-    }
-
-    // Status effect indicators
-    if (enemy.statusEffects.length > 0) {
-      ctx.globalAlpha = 0.5 + Math.sin(gameTime * 6) * 0.3;
-      for (const eff of enemy.statusEffects) {
-        if (eff.type === 'burn') {
-          ctx.fillStyle = '#ff4400';
-          ctx.fillRect(enemy.pos.x - 2, enemy.pos.y - 2, 28, 28);
-        } else if (eff.type === 'slow') {
-          ctx.fillStyle = '#44aaff';
-          ctx.fillRect(enemy.pos.x - 2, enemy.pos.y - 2, 28, 28);
-        }
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // Tired boss indicator
-    if (enemy.isBoss && enemy.isTired) {
-      ctx.globalAlpha = 0.6 + Math.sin(gameTime * 8) * 0.3;
-      ctx.fillStyle = '#FFD700';
       ctx.font = 'bold 12px Rajdhani';
       ctx.textAlign = 'center';
-      ctx.fillText('💫 TIRED!', enemy.pos.x + 12, enemy.pos.y - 16);
-      // Pulsing gold outline
-      ctx.strokeStyle = '#FFD700';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(enemy.pos.x - 6, enemy.pos.y - 6, size + 12, size + 12);
-      ctx.globalAlpha = 1;
-    }
-
-    // Summoning indicator
-    if (enemy.isBoss && enemy.state === 'special') {
-      ctx.globalAlpha = 0.7;
-      ctx.fillStyle = ELEMENT_COLORS[enemy.element];
-      ctx.font = 'bold 10px Rajdhani';
-      ctx.textAlign = 'center';
-      ctx.fillText('SUMMONING...', enemy.pos.x + 12, enemy.pos.y - 16);
-      // Shield effect
-      ctx.strokeStyle = ELEMENT_COLORS[enemy.element];
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(enemy.pos.x + 12, enemy.pos.y + 12, 24 + Math.sin(gameTime * 4) * 4, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+      ctx.fillText('▲ EXIT', exit.x * TILE_SIZE + TILE_SIZE / 2, exit.y * TILE_SIZE + TILE_SIZE / 2 + 4);
     }
   }
 
-  // Projectiles
+  // Enemies (using sprite system)
+  for (const enemy of room.enemies) {
+    if (enemy.hp <= 0) continue;
+    drawEnemy(ctx, enemy, gameTime);
+  }
+
+  // Projectiles (enhanced with glow trails)
   for (const proj of projectiles) {
-    ctx.fillStyle = ELEMENT_COLORS[proj.element];
-    ctx.shadowColor = ELEMENT_COLORS[proj.element];
-    ctx.shadowBlur = 10;
+    const color = ELEMENT_COLORS[proj.element];
+    // Outer glow
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.8;
     ctx.beginPath();
     ctx.arc(proj.pos.x, proj.pos.y, proj.radius, 0, Math.PI * 2);
     ctx.fill();
-    ctx.shadowBlur = 0;
-  }
-
-  // Player
-  if (player.hp > 0) {
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath();
-    ctx.ellipse(player.pos.x + 12, player.pos.y + 26, 10, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Invincibility flash
-    if (player.invincible > 0 && Math.floor(player.invincible * 20) % 2 === 0) {
-      ctx.globalAlpha = 0.5;
-    }
-
-    // Body
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(player.pos.x, player.pos.y, 24, 24);
-    ctx.fillStyle = ELEMENT_COLORS[player.element];
-    ctx.fillRect(player.pos.x + 2, player.pos.y + 2, 20, 20);
-    
-    // Direction indicator
+    // Inner bright core
+    ctx.globalAlpha = 1;
     ctx.fillStyle = '#fff';
     ctx.beginPath();
-    ctx.arc(
-      player.pos.x + 12 + player.facing.x * 8,
-      player.pos.y + 12 + player.facing.y * 8,
-      3, 0, Math.PI * 2
-    );
+    ctx.arc(proj.pos.x, proj.pos.y, proj.radius * 0.4, 0, Math.PI * 2);
     ctx.fill();
-
-    ctx.globalAlpha = 1;
-    
-    // Element aura
-    ctx.strokeStyle = ELEMENT_COLORS[player.element];
-    ctx.globalAlpha = 0.3 + Math.sin(gameTime * 3) * 0.1;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(player.pos.x - 4, player.pos.y - 4, 32, 32);
-    ctx.globalAlpha = 1;
-  }
-
-  // Particles
-  for (const p of particles) {
-    ctx.globalAlpha = p.life / p.maxLife;
-    ctx.fillStyle = p.color;
-    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    ctx.shadowBlur = 0;
   }
   ctx.globalAlpha = 1;
 
-  // Damage numbers
+  // Player (using sprite system)
+  if (player.hp > 0) {
+    drawPlayer(ctx, player, gameTime);
+  }
+
+  // Particles (enhanced rendering)
+  for (const p of particles) {
+    const lifeRatio = p.life / p.maxLife;
+    ctx.globalAlpha = lifeRatio;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = p.size * 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * (0.5 + lifeRatio * 0.5), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  ctx.globalAlpha = 1;
+
+  // Damage numbers (enhanced with outlines)
   for (const dmg of damageNumbers) {
     ctx.globalAlpha = dmg.lifetime;
-    ctx.font = `${dmg.isCrit ? 'bold 18' : '14'}px Rajdhani`;
+    const fontSize = dmg.isCrit ? 20 : 14;
+    ctx.font = `${dmg.isCrit ? 'bold ' : ''}${fontSize}px Rajdhani`;
     ctx.textAlign = 'center';
+    // Shadow/outline
     ctx.fillStyle = '#000';
     ctx.fillText(dmg.value.toString(), dmg.pos.x + 1, dmg.pos.y + 1);
+    ctx.fillText(dmg.value.toString(), dmg.pos.x - 1, dmg.pos.y - 1);
+    // Colored text
     ctx.fillStyle = dmg.isCrit ? '#FFD700' : ELEMENT_COLORS[dmg.element];
-    ctx.fillText((dmg.isCrit ? 'CRIT! ' : '') + dmg.value.toString(), dmg.pos.x, dmg.pos.y);
+    const text = (dmg.isCrit ? 'CRIT! ' : '') + dmg.value.toString();
+    ctx.fillText(text, dmg.pos.x, dmg.pos.y);
   }
   ctx.globalAlpha = 1;
 
+  ctx.restore();
+
+  // Post-processing effects (rendered in screen space)
+  ctx.save();
+  renderAmbient(ctx, room.zone, camera, gameTime);
+  renderIceFrost(ctx, room.zone, player.hp, player.maxHp);
+  renderHeatDistortion(ctx, room.zone, gameTime);
   ctx.restore();
 }
 
