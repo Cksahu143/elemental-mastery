@@ -144,10 +144,13 @@ function loadRoom(zone: ElementType, fl: number) {
 }
 
 export function nextRoom() {
-  floor++;
-  bossDialogueShown = false;
-  loadRoom(player.element, floor);
-  onStateChange?.();
+  // Fade out, then load new room
+  startTransition('fade', 'out', 0.3, '#000000', () => {
+    floor++;
+    bossDialogueShown = false;
+    loadRoom(player.element, floor);
+    onStateChange?.();
+  });
 }
 
 export function getSaveData(): SaveData {
