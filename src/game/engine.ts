@@ -113,6 +113,8 @@ export function setKingdomRegen(hpR: number, manaR: number) {
   kingdomManaRegen = manaR;
 }
 
+let torchCache: TorchLight[] = [];
+
 function loadRoom(zone: ElementType, fl: number) {
   const isBoss = fl % 5 === 0;
   room = generateRoom(zone, fl, isBoss);
@@ -123,11 +125,20 @@ function loadRoom(zone: ElementType, fl: number) {
   damageNumbers = [];
   particles = [];
   resetAmbient();
+  torchCache = collectTorches(room.tiles, zone, TILE_SIZE);
+  
+  // Room transition
+  startTransition('fade', 'in', 0.4);
   
   if (isBoss && !bossDialogueShown) {
     bossDialogueShown = true;
     SFX.bossRoar();
     startBossMusic(zone);
+    // Boss intro zoom
+    const boss = room.enemies.find(e => e.isBoss);
+    if (boss) {
+      startBossIntroZoom(boss.pos.x, boss.pos.y, zone);
+    }
     onBossEncounter?.(zone);
   }
 }
