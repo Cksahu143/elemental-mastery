@@ -185,7 +185,7 @@ export function renderDeathOverlay(ctx: CanvasRenderingContext2D, deathTime: num
 }
 
 // ─── Dynamic Torch Lighting ───
-interface TorchLight {
+export interface TorchLight {
   x: number;
   y: number;
   radius: number;
