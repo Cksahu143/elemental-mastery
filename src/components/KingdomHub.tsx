@@ -316,7 +316,7 @@ function KingdomMapCanvas({ zoneColor }: { zoneColor: string }) {
       for (const orb of orbs) {
         const pulse = 0.4 + 0.2 * Math.sin(timeRef.current * 0.8 + orb.x * 5);
         const grd = ctx.createRadialGradient(orb.x * W, orb.y * H, 0, orb.x * W, orb.y * H, orb.r);
-        grd.addColorStop(0, `${zoneColor}${Math.round(pulse * 30).toString(16).padStart(2, '0')}`);
+        grd.addColorStop(0, `${zoneColor}${Math.max(0, Math.min(255, Math.round(pulse * 30))).toString(16).padStart(2, '0')}`);
         grd.addColorStop(1, 'transparent');
         ctx.fillStyle = grd;
         ctx.fillRect(0, 0, W, H);
