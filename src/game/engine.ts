@@ -197,6 +197,10 @@ export function update(dt: number) {
   if (!player || !room) return;
   gameTime += dt;
 
+  // Update screen effects
+  updateTransition(dt);
+  updateBossZoom(dt);
+
   // Update ambient environment effects
   updateAmbient(dt, player.element, camera, room.width, room.height);
 
