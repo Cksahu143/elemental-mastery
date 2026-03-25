@@ -124,7 +124,7 @@ export default function IntroCutscene({ onComplete }: IntroCutsceneProps) {
         const alpha = (1 - phase) * 0.15;
         ctx.beginPath();
         ctx.arc(W / 2, H / 2, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `${color}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
+        ctx.strokeStyle = `${color}${Math.max(0, Math.min(255, Math.round(alpha * 255))).toString(16).padStart(2, '0')}`;
         ctx.lineWidth = 2;
         ctx.stroke();
       }
