@@ -9,6 +9,8 @@ import { SFX, startAmbientMusic, startBossMusic, stopBossMusic } from './audio';
 import type { KingdomBonuses } from './kingdom';
 import { initSprites, drawPlayer, drawEnemy, drawTile } from './sprites';
 import { updateAmbient, renderAmbient, renderIceFrost, renderHeatDistortion, resetAmbient } from './environment';
+import { updateTransition, renderTransition, startTransition, renderDynamicLighting, collectTorches, renderDeathOverlay, startBossIntroZoom, updateBossZoom, renderBossZoomOverlay } from './screenEffects';
+import type { TorchLight } from './screenEffects';
 
 // ─── Input tracking ───
 const keys: Record<string, boolean> = {};
@@ -111,6 +113,8 @@ export function setKingdomRegen(hpR: number, manaR: number) {
   kingdomManaRegen = manaR;
 }
 
+let torchCache: TorchLight[] = [];
+
 function loadRoom(zone: ElementType, fl: number) {
   const isBoss = fl % 5 === 0;
   room = generateRoom(zone, fl, isBoss);
@@ -121,20 +125,32 @@ function loadRoom(zone: ElementType, fl: number) {
   damageNumbers = [];
   particles = [];
   resetAmbient();
+  torchCache = collectTorches(room.tiles, zone, TILE_SIZE);
+  
+  // Room transition
+  startTransition('fade', 'in', 0.4);
   
   if (isBoss && !bossDialogueShown) {
     bossDialogueShown = true;
     SFX.bossRoar();
     startBossMusic(zone);
+    // Boss intro zoom
+    const boss = room.enemies.find(e => e.isBoss);
+    if (boss) {
+      startBossIntroZoom(boss.pos.x, boss.pos.y, zone);
+    }
     onBossEncounter?.(zone);
   }
 }
 
 export function nextRoom() {
-  floor++;
-  bossDialogueShown = false;
-  loadRoom(player.element, floor);
-  onStateChange?.();
+  // Fade out, then load new room
+  startTransition('fade', 'out', 0.3, '#000000', () => {
+    floor++;
+    bossDialogueShown = false;
+    loadRoom(player.element, floor);
+    onStateChange?.();
+  });
 }
 
 export function getSaveData(): SaveData {
@@ -183,6 +199,10 @@ export function allocateStat(stat: keyof PlayerState['stats']) {
 export function update(dt: number) {
   if (!player || !room) return;
   gameTime += dt;
+
+  // Update screen effects
+  updateTransition(dt);
+  updateBossZoom(dt);
 
   // Update ambient environment effects
   updateAmbient(dt, player.element, camera, room.width, room.height);
@@ -1213,6 +1233,20 @@ export function render(ctx: CanvasRenderingContext2D) {
   renderAmbient(ctx, room.zone, camera, gameTime);
   renderIceFrost(ctx, room.zone, player.hp, player.maxHp);
   renderHeatDistortion(ctx, room.zone, gameTime);
+  
+  // Dynamic torch lighting
+  renderDynamicLighting(ctx, torchCache, player.pos.x + 12, player.pos.y + 12, ELEMENT_COLORS[player.element], camera.x, camera.y, gameTime);
+  
+  // Boss intro zoom overlay
+  renderBossZoomOverlay(ctx);
+  
+  // Death overlay
+  if (player.hp <= 0) {
+    renderDeathOverlay(ctx, gameTime);
+  }
+  
+  // Screen transition
+  renderTransition(ctx);
   ctx.restore();
 }
 

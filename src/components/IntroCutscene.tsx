@@ -124,7 +124,7 @@ export default function IntroCutscene({ onComplete }: IntroCutsceneProps) {
         const alpha = (1 - phase) * 0.15;
         ctx.beginPath();
         ctx.arc(W / 2, H / 2, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `${color}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
+        ctx.strokeStyle = `${color}${Math.max(0, Math.min(255, Math.round(alpha * 255))).toString(16).padStart(2, '0')}`;
         ctx.lineWidth = 2;
         ctx.stroke();
       }
@@ -132,7 +132,7 @@ export default function IntroCutscene({ onComplete }: IntroCutsceneProps) {
       // Central glow
       const centerGlow = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 200);
       const pulse = 0.5 + 0.3 * Math.sin(t / 1000 * 1.5);
-      centerGlow.addColorStop(0, `${color}${Math.round(pulse * 40).toString(16).padStart(2, '0')}`);
+      centerGlow.addColorStop(0, `${color}${Math.max(0, Math.min(255, Math.round(pulse * 40))).toString(16).padStart(2, '0')}`);
       centerGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = centerGlow;
       ctx.fillRect(0, 0, W, H);
@@ -170,10 +170,10 @@ export default function IntroCutscene({ onComplete }: IntroCutsceneProps) {
           p.color = colors[Math.floor(Math.random() * colors.length)];
         }
 
-        const alpha = Math.min(p.life / p.maxLife, 1) * 0.8;
+        const alpha = Math.max(0, Math.min(p.life / p.maxLife, 1)) * 0.8;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color + Math.round(alpha * 255).toString(16).padStart(2, '0');
+        ctx.fillStyle = p.color + Math.max(0, Math.min(255, Math.round(alpha * 255))).toString(16).padStart(2, '0');
         ctx.fill();
       }
 

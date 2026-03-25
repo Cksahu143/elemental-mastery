@@ -2,7 +2,11 @@
 import { ElementType, ELEMENT_COLORS, EnemyType, Enemy, PlayerState, TILE_SIZE } from './types';
 import playerSpriteUrl from '../assets/player-sprite.png';
 import bossFireUrl from '../assets/boss-fire.png';
+import bossIceUrl from '../assets/boss-ice.png';
+import bossLightningUrl from '../assets/boss-lightning.png';
+import bossShadowUrl from '../assets/boss-shadow.png';
 import enemiesSpriteUrl from '../assets/enemies-sprite.png';
+import enemiesElementalUrl from '../assets/enemies-elemental.png';
 import dungeonTilesUrl from '../assets/dungeon-tiles.png';
 
 // ─── Sprite Sheet Management ───
@@ -35,9 +39,13 @@ let spritesInitialized = false;
 export function initSprites() {
   if (spritesInitialized) return;
   spritesInitialized = true;
-  loadSprite('player', playerSpriteUrl, 4); // idle, walk, attack, hurt
+  loadSprite('player', playerSpriteUrl, 4);
   loadSprite('boss_fire', bossFireUrl, 1);
-  loadSprite('enemies', enemiesSpriteUrl, 4); // melee, ranged, assassin, tank
+  loadSprite('boss_ice', bossIceUrl, 1);
+  loadSprite('boss_lightning', bossLightningUrl, 1);
+  loadSprite('boss_shadow', bossShadowUrl, 1);
+  loadSprite('enemies', enemiesSpriteUrl, 4);
+  loadSprite('enemies_elemental', enemiesElementalUrl, 4);
   loadSprite('tiles', dungeonTilesUrl, 1);
 }
 
@@ -466,21 +474,31 @@ function drawHazardTile(ctx: CanvasRenderingContext2D, x: number, y: number, zon
   const glowIntensity = 0.4 + Math.sin(t) * 0.2;
   
   if (zone === 'fire') {
-    // Flowing lava with cracks
-    ctx.fillStyle = `rgba(255,68,0,${glowIntensity})`;
+    // Flowing lava pool — NOT a cross shape
+    // Base lava fill
+    ctx.fillStyle = `rgba(180,40,0,${glowIntensity})`;
     ctx.fillRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-    // Bright lava veins
-    ctx.strokeStyle = `rgba(255,200,0,${glowIntensity * 0.8})`;
-    ctx.lineWidth = 2;
+    // Bright flowing surface
+    ctx.fillStyle = `rgba(255,100,0,${glowIntensity * 0.7})`;
     ctx.beginPath();
-    ctx.moveTo(x + 8, y + 4);
-    ctx.quadraticCurveTo(x + TILE_SIZE / 2, y + TILE_SIZE / 2 + Math.sin(t * 1.5) * 8, x + TILE_SIZE - 8, y + TILE_SIZE - 4);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x + 4, y + TILE_SIZE - 8);
-    ctx.quadraticCurveTo(x + TILE_SIZE / 2 + Math.cos(t) * 6, y + TILE_SIZE / 2, x + TILE_SIZE - 4, y + 8);
-    ctx.stroke();
-    // Bubble
+    ctx.moveTo(x + 6, y + 6);
+    ctx.lineTo(x + TILE_SIZE - 6, y + 8 + Math.sin(t) * 3);
+    ctx.lineTo(x + TILE_SIZE - 8, y + TILE_SIZE - 6);
+    ctx.lineTo(x + 8 + Math.sin(t * 1.3) * 3, y + TILE_SIZE - 8);
+    ctx.closePath();
+    ctx.fill();
+    // Hot spots (bright yellow-orange blobs)
+    const blobCount = 3;
+    for (let b = 0; b < blobCount; b++) {
+      const bx = x + 10 + ((seed * (b + 1) * 7) % (TILE_SIZE - 20));
+      const by = y + 10 + ((seed * (b + 1) * 11) % (TILE_SIZE - 20));
+      const br = 3 + Math.sin(t * 2 + b * 2) * 2;
+      ctx.fillStyle = `rgba(255,200,50,${0.5 + Math.sin(t * 3 + b) * 0.3})`;
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Bubble pops
     if (seed % 3 === 0) {
       const bubbleY = y + TILE_SIZE * 0.3 + Math.sin(t * 3 + seed) * 4;
       ctx.fillStyle = `rgba(255,220,100,${0.4 + Math.sin(t * 4 + seed) * 0.3})`;
@@ -488,6 +506,16 @@ function drawHazardTile(ctx: CanvasRenderingContext2D, x: number, y: number, zon
       ctx.arc(x + 10 + (seed % 20), bubbleY, 2 + Math.sin(t * 2) * 1, 0, Math.PI * 2);
       ctx.fill();
     }
+    // Surface shimmer
+    ctx.strokeStyle = `rgba(255,180,50,${0.3 + Math.sin(t * 1.5) * 0.15})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let sx = x + 4; sx < x + TILE_SIZE - 4; sx += 6) {
+      const sy = y + TILE_SIZE / 2 + Math.sin(t * 2 + sx * 0.15) * 6;
+      if (sx === x + 4) ctx.moveTo(sx, sy);
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
   } else if (zone === 'ice') {
     // Ice crystals
     ctx.fillStyle = `rgba(56,189,248,${glowIntensity * 0.5})`;
