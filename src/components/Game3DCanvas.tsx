@@ -1,5 +1,5 @@
 // 3D Mode Renderer using React Three Fiber
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ElementType, ELEMENT_COLORS, TILE_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT, GameRoom, PlayerState, Enemy } from '../game/types';
@@ -14,66 +14,41 @@ const ZONE_WALL_COLORS: Record<ElementType, string> = {
   fire: '#3d1a0a', ice: '#0a1a3d', lightning: '#2d2a0a', shadow: '#1a0a3d',
   earth: '#3d2a0a', wind: '#0a3d20', nature: '#0a3d0a', void: '#3d0a20',
 };
+const ZONE_HAZARD_COLORS: Record<ElementType, string> = {
+  fire: '#ff4400', ice: '#00aaff', lightning: '#ffcc00', shadow: '#9900ff',
+  earth: '#cc7700', wind: '#00ffaa', nature: '#00dd44', void: '#ff00aa',
+};
 
 // ─── Dungeon Floor ───
 function DungeonFloor({ room }: { room: GameRoom }) {
-  const meshRef = useRef<THREE.Mesh>(null);
   const color = ZONE_FLOOR_COLORS[room.zone];
   return (
-    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[room.width / 2, -0.01, room.height / 2]}>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[room.width / 2, -0.01, room.height / 2]}>
       <planeGeometry args={[room.width, room.height]} />
       <meshStandardMaterial color={color} roughness={0.9} />
     </mesh>
   );
 }
 
-// ─── Walls ───
+// ─── Walls using instanced mesh ───
 function DungeonWalls({ room }: { room: GameRoom }) {
   const wallColor = ZONE_WALL_COLORS[room.zone];
   const positions = useMemo(() => {
     const pos: [number, number][] = [];
     for (let y = 0; y < room.height; y++) {
       for (let x = 0; x < room.width; x++) {
-        if (room.tiles[y][x] === 1) {
+        if (room.tiles[y]?.[x] === 1) {
           pos.push([x, y]);
         }
       }
     }
     return pos;
-  }, [room]);
-
-  return (
-    <instancedMesh args={[undefined, undefined, positions.length]}>
-      <boxGeometry args={[1, 1.5, 1]} />
-      <meshStandardMaterial color={wallColor} roughness={0.7} />
-      {positions.map(([x, y], i) => {
-        const matrix = new THREE.Matrix4();
-        matrix.setPosition(x + 0.5, 0.75, y + 0.5);
-        return <primitive key={i} object={matrix} attach={`instanceMatrix-${i}`} />;
-      })}
-    </instancedMesh>
-  );
-}
-
-// Simple wall rendering without instancedMesh attach issues
-function SimpleWalls({ room }: { room: GameRoom }) {
-  const wallColor = ZONE_WALL_COLORS[room.zone];
-  const positions = useMemo(() => {
-    const pos: [number, number][] = [];
-    for (let y = 0; y < room.height; y++) {
-      for (let x = 0; x < room.width; x++) {
-        if (room.tiles[y][x] === 1) {
-          pos.push([x, y]);
-        }
-      }
-    }
-    return pos;
-  }, [room]);
+  }, [room.tiles, room.width, room.height]);
 
   const ref = useRef<THREE.InstancedMesh>(null);
 
   useEffect(() => {
-    if (!ref.current) return;
+    if (!ref.current || positions.length === 0) return;
     const mat = new THREE.Matrix4();
     positions.forEach(([x, y], i) => {
       mat.setPosition(x + 0.5, 0.75, y + 0.5);
@@ -94,34 +69,44 @@ function SimpleWalls({ room }: { room: GameRoom }) {
 
 // ─── Hazard tiles ───
 function HazardTiles({ room, gameTime }: { room: GameRoom; gameTime: number }) {
-  const hazardColor = ELEMENT_COLORS[room.zone];
+  const hazardColor = ZONE_HAZARD_COLORS[room.zone];
   const positions = useMemo(() => {
     const pos: [number, number][] = [];
     for (let y = 0; y < room.height; y++) {
       for (let x = 0; x < room.width; x++) {
-        if (room.tiles[y][x] === 2) {
+        if (room.tiles[y]?.[x] === 2) {
           pos.push([x, y]);
         }
       }
     }
     return pos;
-  }, [room]);
+  }, [room.tiles, room.width, room.height]);
+
+  const ref = useRef<THREE.InstancedMesh>(null);
+
+  useEffect(() => {
+    if (!ref.current || positions.length === 0) return;
+    const mat = new THREE.Matrix4();
+    positions.forEach(([x, y], i) => {
+      mat.setPosition(x + 0.5, 0.02, y + 0.5);
+      ref.current!.setMatrixAt(i, mat);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+  }, [positions]);
+
+  if (positions.length === 0) return null;
 
   return (
-    <>
-      {positions.map(([x, y], i) => (
-        <mesh key={i} position={[x + 0.5, 0.02, y + 0.5]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.9, 0.9]} />
-          <meshStandardMaterial
-            color={hazardColor}
-            emissive={hazardColor}
-            emissiveIntensity={0.3 + Math.sin(gameTime * 3 + i) * 0.15}
-            transparent
-            opacity={0.7}
-          />
-        </mesh>
-      ))}
-    </>
+    <instancedMesh ref={ref} args={[undefined, undefined, positions.length]}>
+      <boxGeometry args={[0.9, 0.04, 0.9]} />
+      <meshStandardMaterial
+        color={hazardColor}
+        emissive={hazardColor}
+        emissiveIntensity={0.4 + Math.sin(gameTime * 3) * 0.2}
+        transparent
+        opacity={0.8}
+      />
+    </instancedMesh>
   );
 }
 
@@ -136,19 +121,16 @@ function Player3D({ player, gameTime }: { player: PlayerState; gameTime: number 
     const px = player.pos.x / TILE_SIZE + 0.5;
     const pz = player.pos.y / TILE_SIZE + 0.5;
     ref.current.position.set(px, 0.5 + bob, pz);
-    // Face direction
     const angle = Math.atan2(player.facing.x, player.facing.y);
     ref.current.rotation.y = angle;
   });
 
   return (
     <group ref={ref}>
-      {/* Body */}
       <mesh position={[0, 0, 0]}>
         <capsuleGeometry args={[0.2, 0.4, 4, 8]} />
         <meshStandardMaterial color="#1a1a2e" />
       </mesh>
-      {/* Aura */}
       <mesh position={[0, 0, 0]}>
         <sphereGeometry args={[0.35, 8, 8]} />
         <meshStandardMaterial
@@ -159,12 +141,10 @@ function Player3D({ player, gameTime }: { player: PlayerState; gameTime: number 
           emissiveIntensity={0.5}
         />
       </mesh>
-      {/* Head */}
       <mesh position={[0, 0.4, 0]}>
         <sphereGeometry args={[0.15, 8, 8]} />
         <meshStandardMaterial color="#2a2a3e" />
       </mesh>
-      {/* Element light */}
       <pointLight color={color} intensity={2} distance={4} />
     </group>
   );
@@ -177,7 +157,8 @@ function Enemy3D({ enemy, gameTime }: { enemy: Enemy; gameTime: number }) {
   
   const color = ELEMENT_COLORS[enemy.element];
   const size = enemy.isBoss ? 0.6 : enemy.type === 'tank' ? 0.4 : 0.25;
-  const bob = Math.sin(gameTime * 3 + parseFloat(enemy.id.replace(/\D/g, '') || '0')) * 0.03;
+  const numericId = parseFloat(enemy.id.replace(/\D/g, '') || '0');
+  const bob = Math.sin(gameTime * 3 + numericId) * 0.03;
 
   const px = enemy.pos.x / TILE_SIZE + 0.5;
   const pz = enemy.pos.y / TILE_SIZE + 0.5;
@@ -202,7 +183,6 @@ function CameraController({ player }: { player: PlayerState }) {
   useFrame(() => {
     const px = player.pos.x / TILE_SIZE + 0.5;
     const pz = player.pos.y / TILE_SIZE + 0.5;
-    // Third-person isometric camera
     camera.position.set(px + 8, 12, pz + 8);
     camera.lookAt(px, 0, pz);
   });
@@ -212,12 +192,18 @@ function CameraController({ player }: { player: PlayerState }) {
 
 // ─── Main 3D Scene ───
 function Scene3D({ gameTime }: { gameTime: number }) {
-  const player = getPlayer();
-  const room = getRoom();
-  
-  if (!player || !room) return null;
+  const [sceneData, setSceneData] = useState<{ player: PlayerState; room: GameRoom } | null>(null);
 
-  const accentColor = ELEMENT_COLORS[player.element];
+  useFrame(() => {
+    const player = getPlayer();
+    const room = getRoom();
+    if (player && room) {
+      setSceneData({ player, room });
+    }
+  });
+
+  if (!sceneData) return null;
+  const { player, room } = sceneData;
 
   return (
     <>
@@ -227,7 +213,7 @@ function Scene3D({ gameTime }: { gameTime: number }) {
       <fog attach="fog" args={['#0a0a14', 8, 25]} />
       
       <DungeonFloor room={room} />
-      <SimpleWalls room={room} />
+      <DungeonWalls room={room} />
       <HazardTiles room={room} gameTime={gameTime} />
       <Player3D player={player} gameTime={gameTime} />
       
