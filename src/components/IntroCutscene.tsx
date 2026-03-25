@@ -132,7 +132,7 @@ export default function IntroCutscene({ onComplete }: IntroCutsceneProps) {
       // Central glow
       const centerGlow = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 200);
       const pulse = 0.5 + 0.3 * Math.sin(t / 1000 * 1.5);
-      centerGlow.addColorStop(0, `${color}${Math.round(pulse * 40).toString(16).padStart(2, '0')}`);
+      centerGlow.addColorStop(0, `${color}${Math.max(0, Math.min(255, Math.round(pulse * 40))).toString(16).padStart(2, '0')}`);
       centerGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = centerGlow;
       ctx.fillRect(0, 0, W, H);
