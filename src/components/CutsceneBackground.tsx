@@ -113,7 +113,7 @@ export default function CutsceneBackground({ zone, intensity = 1 }: CutsceneBack
         canvas.width * gradX, canvas.height * gradY, 0,
         canvas.width * gradX, canvas.height * gradY, canvas.width * 0.6
       );
-      grad.addColorStop(0, `${config.colors[0]}${Math.floor(pulseAlpha * 255).toString(16).padStart(2, '0')}`);
+      grad.addColorStop(0, `${config.colors[0]}${Math.max(0, Math.min(255, Math.floor(pulseAlpha * 255))).toString(16).padStart(2, '0')}`);
       grad.addColorStop(1, 'transparent');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
