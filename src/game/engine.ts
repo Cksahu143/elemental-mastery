@@ -1230,6 +1230,20 @@ export function render(ctx: CanvasRenderingContext2D) {
   renderAmbient(ctx, room.zone, camera, gameTime);
   renderIceFrost(ctx, room.zone, player.hp, player.maxHp);
   renderHeatDistortion(ctx, room.zone, gameTime);
+  
+  // Dynamic torch lighting
+  renderDynamicLighting(ctx, torchCache, player.pos.x + 12, player.pos.y + 12, ELEMENT_COLORS[player.element], camera.x, camera.y, gameTime);
+  
+  // Boss intro zoom overlay
+  renderBossZoomOverlay(ctx);
+  
+  // Death overlay
+  if (player.hp <= 0) {
+    renderDeathOverlay(ctx, gameTime);
+  }
+  
+  // Screen transition
+  renderTransition(ctx);
   ctx.restore();
 }
 
