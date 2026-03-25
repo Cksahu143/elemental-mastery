@@ -170,10 +170,10 @@ export default function IntroCutscene({ onComplete }: IntroCutsceneProps) {
           p.color = colors[Math.floor(Math.random() * colors.length)];
         }
 
-        const alpha = Math.min(p.life / p.maxLife, 1) * 0.8;
+        const alpha = Math.max(0, Math.min(p.life / p.maxLife, 1)) * 0.8;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color + Math.round(alpha * 255).toString(16).padStart(2, '0');
+        ctx.fillStyle = p.color + Math.max(0, Math.min(255, Math.round(alpha * 255))).toString(16).padStart(2, '0');
         ctx.fill();
       }
 

@@ -136,16 +136,16 @@ export default function CutsceneBackground({ zone, intensity = 1 }: CutsceneBack
           continue;
         }
 
-        const alpha = Math.min(1, p.life / (p.maxLife * 0.3)) * Math.min(1, (p.maxLife - p.life) / 0.5);
+        const alpha = Math.max(0, Math.min(1, p.life / (p.maxLife * 0.3)) * Math.min(1, (p.maxLife - p.life) / 0.5));
 
         if (p.type === 'glow') {
           const glowGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
-          glowGrad.addColorStop(0, `${p.color}${Math.floor(alpha * 80).toString(16).padStart(2, '0')}`);
+          glowGrad.addColorStop(0, `${p.color}${Math.max(0, Math.min(255, Math.floor(alpha * 80))).toString(16).padStart(2, '0')}`);
           glowGrad.addColorStop(1, 'transparent');
           ctx.fillStyle = glowGrad;
           ctx.fillRect(p.x - p.size * 3, p.y - p.size * 3, p.size * 6, p.size * 6);
         } else if (p.type === 'streak') {
-          ctx.strokeStyle = `${p.color}${Math.floor(alpha * 200).toString(16).padStart(2, '0')}`;
+          ctx.strokeStyle = `${p.color}${Math.max(0, Math.min(255, Math.floor(alpha * 200))).toString(16).padStart(2, '0')}`;
           ctx.lineWidth = p.size * 0.5;
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
