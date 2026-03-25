@@ -2,7 +2,11 @@
 import { ElementType, ELEMENT_COLORS, EnemyType, Enemy, PlayerState, TILE_SIZE } from './types';
 import playerSpriteUrl from '../assets/player-sprite.png';
 import bossFireUrl from '../assets/boss-fire.png';
+import bossIceUrl from '../assets/boss-ice.png';
+import bossLightningUrl from '../assets/boss-lightning.png';
+import bossShadowUrl from '../assets/boss-shadow.png';
 import enemiesSpriteUrl from '../assets/enemies-sprite.png';
+import enemiesElementalUrl from '../assets/enemies-elemental.png';
 import dungeonTilesUrl from '../assets/dungeon-tiles.png';
 
 // ─── Sprite Sheet Management ───
@@ -35,9 +39,13 @@ let spritesInitialized = false;
 export function initSprites() {
   if (spritesInitialized) return;
   spritesInitialized = true;
-  loadSprite('player', playerSpriteUrl, 4); // idle, walk, attack, hurt
+  loadSprite('player', playerSpriteUrl, 4);
   loadSprite('boss_fire', bossFireUrl, 1);
-  loadSprite('enemies', enemiesSpriteUrl, 4); // melee, ranged, assassin, tank
+  loadSprite('boss_ice', bossIceUrl, 1);
+  loadSprite('boss_lightning', bossLightningUrl, 1);
+  loadSprite('boss_shadow', bossShadowUrl, 1);
+  loadSprite('enemies', enemiesSpriteUrl, 4);
+  loadSprite('enemies_elemental', enemiesElementalUrl, 4);
   loadSprite('tiles', dungeonTilesUrl, 1);
 }
 
