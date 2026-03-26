@@ -203,6 +203,7 @@ export function update(dt: number) {
   // Update screen effects
   updateTransition(dt);
   updateBossZoom(dt);
+  updateMotionBlur(dt);
 
   // Update ambient environment effects
   updateAmbient(dt, player.element, camera, room.width, room.height);
