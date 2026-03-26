@@ -9,7 +9,7 @@ import { SFX, startAmbientMusic, startBossMusic, stopBossMusic } from './audio';
 import type { KingdomBonuses } from './kingdom';
 import { initSprites, drawPlayer, drawEnemy, drawTile } from './sprites';
 import { updateAmbient, renderAmbient, renderIceFrost, renderHeatDistortion, resetAmbient } from './environment';
-import { updateTransition, renderTransition, startTransition, renderDynamicLighting, collectTorches, renderDeathOverlay, startBossIntroZoom, updateBossZoom, renderBossZoomOverlay } from './screenEffects';
+import { updateTransition, renderTransition, startTransition, renderDynamicLighting, collectTorches, renderDeathOverlay, startBossIntroZoom, updateBossZoom, renderBossZoomOverlay, renderBloom, renderChromaticAberration, renderMotionBlur, updateMotionBlur, triggerMotionBlur, renderElementAura } from './screenEffects';
 import type { TorchLight } from './screenEffects';
 
 // ─── Input tracking ───

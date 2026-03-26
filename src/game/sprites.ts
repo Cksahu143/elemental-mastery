@@ -48,6 +48,10 @@ export function initSprites() {
   loadSprite('boss_ice', bossIceUrl, 1);
   loadSprite('boss_lightning', bossLightningUrl, 1);
   loadSprite('boss_shadow', bossShadowUrl, 1);
+  loadSprite('boss_earth', bossEarthUrl, 1);
+  loadSprite('boss_wind', bossWindUrl, 1);
+  loadSprite('boss_nature', bossNatureUrl, 1);
+  loadSprite('boss_void', bossVoidUrl, 1);
   loadSprite('enemies', enemiesSpriteUrl, 4);
   loadSprite('enemies_elemental', enemiesElementalUrl, 4);
   loadSprite('tiles', dungeonTilesUrl, 1);
