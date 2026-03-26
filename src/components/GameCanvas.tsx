@@ -5,6 +5,10 @@ import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/save
 import { POST_BOSS_DIALOGUES } from '../game/lore';
 import { SFX } from '../game/audio';
 import { loadKingdom, saveKingdom, awardBossGold, awardRoomGold, getKingdomBonuses, KingdomState } from '../game/kingdom';
+import {
+  GUIDE_INTRO_DIALOGUE, GUIDE_ZONE_DIALOGUES, VILLAIN_TAUNTS,
+  getDefaultQuestState, updateQuestProgress, QuestState, QUESTS,
+} from '../game/story';
 import TitleScreen from './TitleScreen';
 import GameHUD from './GameHUD';
 import LoreCodex from './LoreCodex';
@@ -20,58 +24,11 @@ import SceneBackground from './SceneBackground';
 import KingdomHub from './KingdomHub';
 import IntroCutscene from './IntroCutscene';
 import Game3DCanvas from './Game3DCanvas';
+import WorldMap from './WorldMap';
 
 type GamePhase = 'title' | 'intro' | 'playing' | 'paused';
 
 const ZONE_ORDER: ElementType[] = ['fire', 'ice', 'lightning', 'shadow', 'earth', 'wind', 'nature', 'void'];
-
-const POST_INTRO_DIALOGUE = [
-  { speaker: 'Mysterious Voice', text: 'You stir at last... The Shattering has left this world in ruin.', color: '#A855F7' },
-  { speaker: 'Mysterious Voice', text: 'I am but an echo — a fragment of what the Guardians once were.', color: '#A855F7' },
-  { speaker: 'Mysterious Voice', text: 'The fire element burns strongest here. Absorb its shards and grow.', color: '#F97316' },
-  { speaker: 'Mysterious Voice', text: 'Press 1-4 to cast abilities once you\'ve unlocked them in the Skill Tree.', color: '#EAB308' },
-  { speaker: 'Mysterious Voice', text: 'Defeat the bosses that guard each zone. Reclaim the elements. Restore balance.', color: '#38BDF8' },
-  { speaker: 'Mysterious Voice', text: 'Go now, Fragment Bearer. The world awaits.', color: '#A855F7' },
-];
-
-const ZONE_ENTRY_DIALOGUES: Record<ElementType, { speaker: string; text: string; color: string }[]> = {
-  fire: [],
-  ice: [
-    { speaker: 'Echo of Ignis', text: 'The Frozen Wastes stretch before you. Glacius\'s sorrow has crystallized the very air.', color: '#FF4500' },
-    { speaker: 'Echo of Ignis', text: 'Tread carefully — the ice remembers all who fall upon it.', color: '#FF4500' },
-    { speaker: 'Mysterious Voice', text: 'Ice enemies resist cold. Switch to Fire for advantage, or master ice\'s slowing power.', color: '#A855F7' },
-  ],
-  lightning: [
-    { speaker: 'Echo of Glacius', text: 'The Storm Citadel crackles with unchecked fury. Voltaris\'s rage echoes in every bolt.', color: '#67E8F9' },
-    { speaker: 'Echo of Glacius', text: 'The storms here are alive — and they do not welcome visitors.', color: '#67E8F9' },
-    { speaker: 'Mysterious Voice', text: 'Lightning enemies are fast. Use ice to slow them, or match their speed.', color: '#A855F7' },
-  ],
-  shadow: [
-    { speaker: 'Echo of Voltaris', text: 'The Abyssal Hollow... even my light cannot reach its depths.', color: '#FACC15' },
-    { speaker: 'Echo of Voltaris', text: 'What waits below is not merely an enemy. It is hunger itself.', color: '#FACC15' },
-    { speaker: 'Mysterious Voice', text: 'Shadow enemies drain life. Your shadow skills heal — use that wisely.', color: '#A855F7' },
-  ],
-  earth: [
-    { speaker: 'Echo of Umbra', text: 'The Ancient Badlands... the earth itself remembers the cataclysm.', color: '#C084FC' },
-    { speaker: 'Echo of Umbra', text: 'Terrath was once a gentle guardian. Now stone and rage are all that remain.', color: '#C084FC' },
-    { speaker: 'Mysterious Voice', text: 'Earth enemies are armored. Use lightning to crack their defenses.', color: '#A855F7' },
-  ],
-  wind: [
-    { speaker: 'Echo of Terrath', text: 'The Sky Peaks. I never thought I\'d see these heights again...', color: '#D97706' },
-    { speaker: 'Echo of Terrath', text: 'Zephyros rides the storm winds like a blade. Watch the skies.', color: '#D97706' },
-    { speaker: 'Mysterious Voice', text: 'Wind enemies are agile — earth slows them. Use your positioning.', color: '#A855F7' },
-  ],
-  nature: [
-    { speaker: 'Echo of Zephyros', text: 'The Verdant Depths... what was once beautiful is now a trap of thorns.', color: '#34D399' },
-    { speaker: 'Echo of Zephyros', text: 'Sylvara\'s grief has turned the forest against all who enter.', color: '#34D399' },
-    { speaker: 'Mysterious Voice', text: 'Nature enemies regenerate. Burn them down fast with fire or void.', color: '#A855F7' },
-  ],
-  void: [
-    { speaker: 'Echo of Sylvara', text: 'The Abyss. Even I am afraid. Nullex is not merely corrupted — it is the corruption.', color: '#4ADE80' },
-    { speaker: 'Echo of Sylvara', text: 'All elements exist to combat the void. You will need them all.', color: '#4ADE80' },
-    { speaker: 'Mysterious Voice', text: 'Void enemies negate your skills. Adapt. Survive. End this.', color: '#A855F7' },
-  ],
-};
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -91,10 +48,15 @@ export default function GameCanvas() {
   const [bossCutsceneZone, setBossCutsceneZone] = useState<ElementType | null>(null);
   const [zoneEntryDialogue, setZoneEntryDialogue] = useState<ElementType | null>(null);
   const [currentZone, setCurrentZone] = useState<ElementType>('fire');
-  // Kingdom state
   const [kingdom, setKingdom] = useState<KingdomState>(() => loadKingdom());
   const [showKingdom, setShowKingdom] = useState(false);
   const [kingdomDefeatedZone, setKingdomDefeatedZone] = useState<ElementType>('fire');
+  // New: quest state, world map, villain cutscene
+  const [questState, setQuestState] = useState<QuestState>(() => getDefaultQuestState());
+  const [showWorldMap, setShowWorldMap] = useState(false);
+  const [villainCutscene, setVillainCutscene] = useState<ElementType | null>(null);
+  const [bossesDefeated, setBossesDefeated] = useState<string[]>([]);
+  const [totalFloorsCleared, setTotalFloorsCleared] = useState(0);
 
   const hasSave = loadGame() !== null;
 
@@ -103,16 +65,36 @@ export default function GameCanvas() {
     setTimeout(() => setNotification(null), 2000);
   }, []);
 
+  // Quest progress helper
+  const progressQuest = useCallback((type: any, target: any, amount = 1) => {
+    setQuestState(prev => {
+      const result = updateQuestProgress(prev, type, target, amount);
+      for (const q of result.completed) {
+        showNotif(`Quest Complete: ${q.title}!`);
+        // Award rewards
+        if (q.rewards.loreId) {
+          setLoreUnlocked(l => l.includes(q.rewards.loreId!) ? l : [...l, q.rewards.loreId!]);
+        }
+      }
+      for (const q of result.newQuests) {
+        showNotif(`New Quest: ${q.title}`);
+      }
+      return result.state;
+    });
+  }, [showNotif]);
+
   const startGame = useCallback((save: ReturnType<typeof getDefaultSave>, isNew: boolean, kb?: KingdomState) => {
     const kingdomState = kb ?? kingdom;
     const bonuses = getKingdomBonuses(kingdomState);
     initGame(save, bonuses);
     setKingdomRegen(bonuses.hpRegen, bonuses.manaRegen);
     setLoreUnlocked(save.loreUnlocked || []);
+    setBossesDefeated(save.bossesDefeated || []);
     setCurrentZone(save.currentZone);
     setShowDeath(false);
     if (isNew) {
-      setPhase('intro'); // show animated intro first
+      setQuestState(getDefaultQuestState());
+      setPhase('intro');
     } else {
       setPhase('playing');
     }
@@ -142,9 +124,10 @@ export default function GameCanvas() {
         if (p && p.element !== currentZone) {
           const prevZone = currentZone;
           setCurrentZone(p.element);
-          const dialogues = ZONE_ENTRY_DIALOGUES[p.element];
+          const dialogues = GUIDE_ZONE_DIALOGUES[p.element];
           if (dialogues && dialogues.length > 0 && prevZone !== p.element) {
             setZoneEntryDialogue(p.element);
+            progressQuest('collect_element', p.element);
           }
         }
       },
@@ -163,7 +146,12 @@ export default function GameCanvas() {
       },
       onRoomCleared: () => {
         showNotif('Room Cleared!');
-        // Award gold for room clear
+        setTotalFloorsCleared(prev => {
+          const next = prev + 1;
+          progressQuest('clear_floors', next, 1);
+          progressQuest('reach_floor', getFloor());
+          return next;
+        });
         setKingdom(prev => {
           const updated = awardRoomGold(prev, getFloor());
           saveKingdom(updated);
@@ -172,7 +160,8 @@ export default function GameCanvas() {
       },
       onBossDefeated: (zone) => {
         setBossCutsceneZone(zone);
-        // Award boss gold
+        setBossesDefeated(prev => prev.includes(zone) ? prev : [...prev, zone]);
+        progressQuest('kill_boss', zone);
         setKingdom(prev => {
           const updated = awardBossGold(prev, getFloor());
           saveKingdom(updated);
@@ -180,7 +169,7 @@ export default function GameCanvas() {
         });
       },
     });
-  }, [showNotif, currentZone]);
+  }, [showNotif, currentZone, progressQuest]);
 
   // Game loop
   useEffect(() => {
@@ -197,7 +186,8 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      if (!showLore && !showStats && !showSkills && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone && !zoneEntryDialogue && !showKingdom) {
+      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene;
+      if (!isPaused) {
         update(dt);
       }
 
@@ -215,46 +205,71 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene]);
 
-  // ESC key
+  // Key bindings
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (showLore) setShowLore(false);
+        if (showWorldMap) setShowWorldMap(false);
+        else if (showLore) setShowLore(false);
         else if (showSkills) setShowSkills(false);
         else if (showStats) setShowStats(false);
         else if (phase === 'playing') setPhase('paused');
         else if (phase === 'paused') setPhase('playing');
       }
+      if (e.key.toLowerCase() === 'm' && phase === 'playing' && !showLore && !showSkills && !showStats && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone && !villainCutscene) {
+        setShowWorldMap(prev => !prev);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [phase, showLore, showStats, showSkills]);
+  }, [phase, showLore, showStats, showSkills, showWorldMap, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, villainCutscene]);
 
   const handleSave = useCallback(() => {
     const data = getSaveData();
     data.loreUnlocked = loreUnlocked;
+    data.bossesDefeated = bossesDefeated;
     saveGame(data);
     showNotif('Game Saved!');
-  }, [loreUnlocked, showNotif]);
+  }, [loreUnlocked, bossesDefeated, showNotif]);
 
-  // After boss cutscene completes, show kingdom hub instead of proceeding directly
+  // After boss post-dialogue, show villain taunt, then kingdom
   const handleBossCutsceneComplete = useCallback(() => {
     const zone = bossCutsceneZone!;
     setBossCutsceneZone(null);
+    // Show villain taunt
+    if (VILLAIN_TAUNTS[zone] && VILLAIN_TAUNTS[zone].length > 0) {
+      setVillainCutscene(zone);
+    } else {
+      proceedToKingdom(zone);
+    }
+  }, [bossCutsceneZone]);
+
+  const proceedToKingdom = useCallback((zone: ElementType) => {
     const zoneIdx = ZONE_ORDER.indexOf(zone);
     const nextZoneIdx = (zoneIdx + 1) % ZONE_ORDER.length;
     setKingdomDefeatedZone(zone);
-    // store next zone for after kingdom
     setCurrentZone(ZONE_ORDER[nextZoneIdx]);
     setShowKingdom(true);
-  }, [bossCutsceneZone]);
+    progressQuest('visit_kingdom', 'kingdom');
+  }, [progressQuest]);
+
+  const handleVillainCutsceneComplete = useCallback(() => {
+    const zone = villainCutscene!;
+    setVillainCutscene(null);
+    proceedToKingdom(zone);
+  }, [villainCutscene, proceedToKingdom]);
 
   const handleKingdomContinue = useCallback(() => {
     setShowKingdom(false);
-    // Continue to next floor/zone
     nextRoom();
+  }, []);
+
+  const handleMapSelectZone = useCallback((zone: ElementType) => {
+    switchElement(zone);
+    setCurrentZone(zone);
+    setShowWorldMap(false);
   }, []);
 
   if (phase === 'title') {
@@ -267,11 +282,9 @@ export default function GameCanvas() {
 
   const player = getPlayer();
   const floor = getFloor();
-  const room = getRoom();
   const loreEntries = getLoreEntries(loreUnlocked);
   const nextZone = ZONE_ORDER[(ZONE_ORDER.indexOf(kingdomDefeatedZone) + 1) % ZONE_ORDER.length];
 
-  // Boss name lookup
   const BOSS_NAME_MAP: Record<ElementType, string> = {
     fire: 'Ignis', ice: 'Glacius', lightning: 'Voltaris', shadow: 'Umbra',
     earth: 'Terrath', wind: 'Zephyros', nature: 'Sylvara', void: 'Nullex',
@@ -298,9 +311,11 @@ export default function GameCanvas() {
             player={player}
             floor={floor}
             zone={player.element}
+            questState={questState}
             onOpenLore={() => setShowLore(true)}
             onOpenStats={() => setShowStats(true)}
             onOpenSkills={() => setShowSkills(true)}
+            onOpenMap={() => setShowWorldMap(true)}
             onPause={() => setPhase('paused')}
           />
         )}
@@ -317,21 +332,27 @@ export default function GameCanvas() {
       {showSkills && player && <SkillTree player={player} onClose={() => setShowSkills(false)} />}
       {showStats && player && <StatAllocation player={player} onClose={() => setShowStats(false)} />}
       {bossZone && <BossDialogue zone={bossZone} onComplete={() => setBossZone(null)} />}
+
+      {/* Guide intro dialogue (replaces old Mysterious Voice) */}
       {showNPCDialogue && (
         <NPCDialogue
-          lines={POST_INTRO_DIALOGUE}
+          lines={GUIDE_INTRO_DIALOGUE}
           zone={currentZone}
           onComplete={() => { setShowNPCDialogue(false); setShowTutorial(true); }}
         />
       )}
       {showTutorial && <Tutorial onComplete={() => setShowTutorial(false)} />}
+
+      {/* Guide zone commentary */}
       {zoneEntryDialogue && (
         <NPCDialogue
-          lines={ZONE_ENTRY_DIALOGUES[zoneEntryDialogue]}
+          lines={GUIDE_ZONE_DIALOGUES[zoneEntryDialogue]}
           zone={zoneEntryDialogue}
           onComplete={() => setZoneEntryDialogue(null)}
         />
       )}
+
+      {/* Boss post-fight cutscene */}
       {bossCutsceneZone && (
         <StoryCutscene
           title={`${BOSS_NAME_MAP[bossCutsceneZone]} Defeated`}
@@ -340,12 +361,44 @@ export default function GameCanvas() {
           onComplete={handleBossCutsceneComplete}
         />
       )}
+
+      {/* Villain taunt after boss */}
+      {villainCutscene && (
+        <StoryCutscene
+          title="A Dark Presence..."
+          lines={VILLAIN_TAUNTS[villainCutscene]}
+          zone={villainCutscene}
+          onComplete={handleVillainCutsceneComplete}
+        />
+      )}
+
+      {/* World Map */}
+      {showWorldMap && player && (
+        <WorldMap
+          unlockedElements={player.unlockedElements}
+          bossesDefeated={bossesDefeated}
+          currentZone={currentZone}
+          questState={questState}
+          onSelectZone={handleMapSelectZone}
+          onClose={() => setShowWorldMap(false)}
+        />
+      )}
+
       {showKingdom && (
         <KingdomHub
           kingdom={kingdom}
           defeatedZone={kingdomDefeatedZone}
           nextZone={nextZone}
-          onUpdateKingdom={(k) => { setKingdom(k); saveKingdom(k); }}
+          onUpdateKingdom={(k) => {
+            setKingdom(k);
+            saveKingdom(k);
+            // Check building upgrade quests
+            const builtCount = Object.values(k.buildings).filter(v => v > 0).length;
+            progressQuest('upgrade_building', builtCount);
+            Object.entries(k.buildings).forEach(([id, level]) => {
+              if (level > 0) progressQuest('upgrade_building', id);
+            });
+          }}
           onContinue={handleKingdomContinue}
           standalone={!bossCutsceneZone}
         />
@@ -373,4 +426,3 @@ export default function GameCanvas() {
     </div>
   );
 }
-

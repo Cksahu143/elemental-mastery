@@ -106,7 +106,7 @@ export interface LoreEntry {
   id: string;
   title: string;
   text: string;
-  category: 'guardians' | 'shattering' | 'corruption' | 'bearers' | 'prophecy';
+  category: 'guardians' | 'shattering' | 'corruption' | 'bearers' | 'prophecy' | 'villain' | 'guide' | 'world';
   unlocked: boolean;
 }
 

@@ -1,108 +1,123 @@
 import { PlayerState, ElementType, ELEMENT_COLORS, ZONE_NAMES, SKILLS } from '../game/types';
 import { switchElement, getActiveSkills, getCameraMode, setCameraMode, type CameraMode } from '../game/engine';
+import QuestTracker from './QuestTracker';
+import { QuestState } from '../game/story';
 
 interface GameHUDProps {
   player: PlayerState;
   floor: number;
   zone: ElementType;
+  questState: QuestState;
   onOpenLore: () => void;
   onOpenStats: () => void;
   onOpenSkills: () => void;
+  onOpenMap: () => void;
   onPause: () => void;
 }
 
-export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, onOpenSkills, onPause }: GameHUDProps) {
+export default function GameHUD({ player, floor, zone, questState, onOpenLore, onOpenStats, onOpenSkills, onOpenMap, onPause }: GameHUDProps) {
   const hpPct = Math.max(0, (player.hp / player.maxHp) * 100);
   const manaPct = Math.max(0, (player.mana / player.maxMana) * 100);
   const xpPct = (player.xp / player.xpToNext) * 100;
 
+  const elementEmoji: Record<ElementType, string> = {
+    fire: '🔥', ice: '❄️', lightning: '⚡', shadow: '🌑',
+    earth: '🪨', wind: '🌀', nature: '🌿', void: '🕳️',
+  };
+
   return (
     <div className="absolute inset-0 pointer-events-none">
-      {/* Top-left: HP & Mana */}
-      <div className="absolute top-4 left-4 pointer-events-auto">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-ui font-bold text-destructive w-8">HP</span>
-          <div className="w-48 h-4 bg-muted/50 border border-border overflow-hidden">
-            <div
-              className="h-full transition-all duration-300"
-              style={{
-                width: `${hpPct}%`,
-                background: `linear-gradient(90deg, #991b1b, #dc2626)`,
-                boxShadow: hpPct < 30 ? '0 0 10px rgba(220,38,38,0.5)' : 'none',
-              }}
-            />
-          </div>
-          <span className="text-xs font-ui text-foreground">{Math.floor(player.hp)}/{player.maxHp}</span>
+      {/* ═══ TOP-LEFT: Player portrait + bars (Prodigy-style) ═══ */}
+      <div className="absolute top-3 left-3 pointer-events-auto flex items-start gap-2">
+        {/* Avatar circle */}
+        <div
+          className="w-14 h-14 rounded-full border-2 flex items-center justify-center text-2xl flex-shrink-0"
+          style={{
+            borderColor: ELEMENT_COLORS[zone],
+            background: `radial-gradient(circle, ${ELEMENT_COLORS[zone]}30, rgba(0,0,0,0.6))`,
+            boxShadow: `0 0 12px ${ELEMENT_COLORS[zone]}50`,
+          }}
+        >
+          {elementEmoji[zone]}
         </div>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-ui font-bold text-secondary w-8">MP</span>
-          <div className="w-48 h-3 bg-muted/50 border border-border overflow-hidden">
-            <div
-              className="h-full transition-all duration-300"
-              style={{
-                width: `${manaPct}%`,
-                background: `linear-gradient(90deg, #1e40af, #3b82f6)`,
-              }}
-            />
+
+        <div className="flex flex-col gap-0.5 min-w-[180px]">
+          {/* Level badge */}
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-xs font-ui font-bold text-foreground">Lv.{player.level}</span>
+            <span className="text-[10px] font-ui text-muted-foreground uppercase tracking-wider">
+              {ZONE_NAMES[zone]} · F{floor}
+            </span>
           </div>
-          <span className="text-xs font-ui text-foreground">{Math.floor(player.mana)}/{player.maxMana}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-ui font-bold text-accent w-8">XP</span>
-          <div className="w-48 h-2 bg-muted/50 border border-border overflow-hidden">
-            <div
-              className="h-full transition-all duration-200"
-              style={{
-                width: `${xpPct}%`,
-                background: `linear-gradient(90deg, #a16207, #eab308)`,
-              }}
-            />
+
+          {/* HP bar */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-ui font-bold text-red-400 w-5">HP</span>
+            <div className="flex-1 h-3.5 bg-black/50 border border-red-900/50 rounded-sm overflow-hidden relative">
+              <div
+                className="h-full transition-all duration-300 rounded-sm"
+                style={{
+                  width: `${hpPct}%`,
+                  background: hpPct < 25
+                    ? 'linear-gradient(90deg, #7f1d1d, #dc2626)'
+                    : 'linear-gradient(90deg, #991b1b, #ef4444)',
+                  boxShadow: hpPct < 25 ? '0 0 8px rgba(220,38,38,0.6)' : 'none',
+                }}
+              />
+              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-ui font-bold text-white/90 drop-shadow">
+                {Math.floor(player.hp)}/{player.maxHp}
+              </span>
+            </div>
+          </div>
+
+          {/* MP bar */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-ui font-bold text-blue-400 w-5">MP</span>
+            <div className="flex-1 h-3 bg-black/50 border border-blue-900/50 rounded-sm overflow-hidden relative">
+              <div
+                className="h-full transition-all duration-300 rounded-sm"
+                style={{
+                  width: `${manaPct}%`,
+                  background: 'linear-gradient(90deg, #1e3a8a, #3b82f6)',
+                }}
+              />
+              <span className="absolute inset-0 flex items-center justify-center text-[8px] font-ui font-bold text-white/80 drop-shadow">
+                {Math.floor(player.mana)}/{player.maxMana}
+              </span>
+            </div>
+          </div>
+
+          {/* XP bar */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-ui font-bold text-yellow-500 w-5">XP</span>
+            <div className="flex-1 h-2 bg-black/50 border border-yellow-900/30 rounded-sm overflow-hidden">
+              <div
+                className="h-full transition-all duration-200 rounded-sm"
+                style={{
+                  width: `${xpPct}%`,
+                  background: 'linear-gradient(90deg, #854d0e, #eab308)',
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Top-center: Zone & Floor */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 text-center pointer-events-auto">
-        <p className="text-xs font-ui tracking-widest uppercase text-muted-foreground">
-          {ZONE_NAMES[zone]}
-        </p>
-        <p className="text-sm font-display" style={{ color: ELEMENT_COLORS[zone] }}>
-          Floor {floor}
-        </p>
-      </div>
-
-      {/* Top-right: Level & Buttons */}
-      <div className="absolute top-4 right-4 flex items-center gap-3 pointer-events-auto">
-        <div className="text-right mr-2">
-          <p className="text-xs font-ui text-muted-foreground">Level</p>
-          <p className="text-2xl font-display font-bold text-primary leading-none">{player.level}</p>
-        </div>
+      {/* ═══ TOP-RIGHT: Menu buttons (compact Prodigy-style) ═══ */}
+      <div className="absolute top-3 right-3 flex items-center gap-1.5 pointer-events-auto">
         {player.statPoints > 0 && (
           <button
             onClick={onOpenStats}
-            className="px-3 py-1 text-xs font-ui font-bold uppercase tracking-wider border border-accent text-accent hover:bg-accent/10 transition-colors animate-pulse-glow"
+            className="px-2 py-1 text-[10px] font-ui font-bold uppercase tracking-wider border rounded animate-pulse"
+            style={{ borderColor: ELEMENT_COLORS[zone], color: ELEMENT_COLORS[zone] }}
           >
-            +{player.statPoints} Pts
+            +{player.statPoints}
           </button>
         )}
-        <button
-          onClick={onOpenSkills}
-          className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-        >
-          Skills
-        </button>
-        <button
-          onClick={onOpenLore}
-          className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-        >
-          Lore
-        </button>
-        <button
-          onClick={onPause}
-          className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-        >
-          Menu
-        </button>
+        <HudButton icon="⚔️" label="Skills" onClick={onOpenSkills} />
+        <HudButton icon="📖" label="Lore" onClick={onOpenLore} />
+        <HudButton icon="🗺️" label="Map" onClick={onOpenMap} />
+        <HudButton icon="⚙️" label="Menu" onClick={onPause} />
         <button
           onClick={() => {
             const modes: CameraMode[] = ['2d', 'isometric', '3d'];
@@ -110,41 +125,43 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
             const next = modes[(modes.indexOf(cur) + 1) % modes.length];
             setCameraMode(next);
           }}
-          className="px-3 py-1 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+          className="w-8 h-8 rounded border border-border bg-black/50 flex items-center justify-center text-[10px] font-ui font-bold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
         >
           {getCameraMode() === '2d' ? '2D' : getCameraMode() === 'isometric' ? 'ISO' : '3D'}
         </button>
       </div>
 
-      {/* Bottom-left: Element switcher */}
+      {/* ═══ TOP-RIGHT BELOW: Quest tracker ═══ */}
+      <div className="absolute top-14 right-3">
+        <QuestTracker questState={questState} onOpenMap={onOpenMap} />
+      </div>
+
+      {/* ═══ BOTTOM-LEFT: Element switcher (circular, Prodigy-style) ═══ */}
       {player.unlockedElements.length > 1 && (
-        <div className="absolute bottom-4 left-4 pointer-events-auto">
-          <p className="text-[10px] font-ui text-muted-foreground mb-1 uppercase tracking-wider">Element</p>
-          <div className="flex gap-2">
+        <div className="absolute bottom-4 left-3 pointer-events-auto">
+          <div className="flex gap-1.5 flex-wrap max-w-[200px]">
             {player.unlockedElements.map(el => (
               <button
                 key={el}
                 onClick={() => switchElement(el)}
-                className="w-10 h-10 border-2 flex items-center justify-center text-sm font-ui font-bold transition-all"
+                className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm transition-all hover:scale-110"
                 style={{
-                  borderColor: player.element === el ? ELEMENT_COLORS[el] : 'hsl(var(--border))',
-                  color: ELEMENT_COLORS[el],
-                  backgroundColor: player.element === el ? `${ELEMENT_COLORS[el]}20` : 'transparent',
-                  boxShadow: player.element === el ? `0 0 10px ${ELEMENT_COLORS[el]}40` : 'none',
+                  borderColor: player.element === el ? ELEMENT_COLORS[el] : 'rgba(255,255,255,0.15)',
+                  backgroundColor: player.element === el ? `${ELEMENT_COLORS[el]}30` : 'rgba(0,0,0,0.4)',
+                  boxShadow: player.element === el ? `0 0 10px ${ELEMENT_COLORS[el]}50` : 'none',
                 }}
                 title={`Switch to ${el}`}
               >
-                {el === 'fire' ? '🔥' : el === 'ice' ? '❄' : el === 'lightning' ? '⚡' : el === 'shadow' ? '🌑' : el === 'earth' ? '🪨' : el === 'wind' ? '🌀' : el === 'nature' ? '🌿' : '🕳️'}
+                {elementEmoji[el]}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* Bottom-center: Dash + Skills */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
-        <div className="flex items-center gap-3">
-          {/* Skill slots */}
+      {/* ═══ BOTTOM-CENTER: Skill bar (Prodigy spell bar style) ═══ */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-auto">
+        <div className="flex items-end gap-1.5 bg-black/40 backdrop-blur-sm rounded-lg px-2 py-1.5 border border-white/10">
           {(() => {
             const activeSkills = getActiveSkills();
             const allSkills = SKILLS[player.element] || [];
@@ -152,42 +169,69 @@ export default function GameHUD({ player, floor, zone, onOpenLore, onOpenStats, 
               const owned = activeSkills.some(s => s.id === skill.id);
               const hasEnoughMana = player.mana >= skill.manaCost;
               return (
-                <div key={skill.id} className="text-center">
+                <div key={skill.id} className="text-center group relative">
                   <div
-                    className="w-12 h-12 border-2 flex flex-col items-center justify-center text-[10px] font-ui font-bold transition-colors"
+                    className="w-11 h-11 rounded-lg border-2 flex flex-col items-center justify-center transition-all"
                     style={{
-                      borderColor: !owned ? 'hsl(var(--muted))' : hasEnoughMana ? ELEMENT_COLORS[player.element] : 'hsl(var(--muted-foreground))',
-                      color: !owned ? 'hsl(var(--muted))' : hasEnoughMana ? ELEMENT_COLORS[player.element] : 'hsl(var(--muted-foreground))',
-                      opacity: owned ? 1 : 0.3,
-                      boxShadow: owned && hasEnoughMana ? `0 0 10px ${ELEMENT_COLORS[player.element]}40` : 'none',
+                      borderColor: !owned ? '#333' : hasEnoughMana ? ELEMENT_COLORS[player.element] : '#555',
+                      background: !owned ? 'rgba(0,0,0,0.4)' : hasEnoughMana ? `${ELEMENT_COLORS[player.element]}15` : 'rgba(0,0,0,0.3)',
+                      opacity: owned ? 1 : 0.35,
+                      boxShadow: owned && hasEnoughMana ? `0 0 8px ${ELEMENT_COLORS[player.element]}30` : 'none',
                     }}
-                    title={owned ? `${skill.name} (${skill.manaCost} MP)` : 'Locked'}
                   >
-                    <span className="text-sm font-bold">{idx + 1}</span>
-                    <span className="text-[8px] truncate w-full text-center px-0.5">{owned ? skill.name.split(' ')[0] : '?'}</span>
+                    <span className="text-xs font-bold font-ui" style={{ color: owned ? ELEMENT_COLORS[player.element] : '#555' }}>
+                      {idx + 1}
+                    </span>
+                    <span className="text-[7px] font-ui truncate w-full text-center px-0.5 text-muted-foreground">
+                      {owned ? skill.name.split(' ')[0] : '?'}
+                    </span>
                   </div>
+                  {/* Tooltip */}
+                  {owned && (
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block bg-card/95 border border-border rounded px-2 py-1 whitespace-nowrap z-50">
+                      <p className="text-[10px] font-ui font-bold text-foreground">{skill.name}</p>
+                      <p className="text-[8px] font-ui text-muted-foreground">{skill.manaCost} MP</p>
+                    </div>
+                  )}
                 </div>
               );
             });
           })()}
 
+          {/* Separator */}
+          <div className="w-px h-8 bg-white/10 mx-0.5" />
+
           {/* Dash */}
           <div className="text-center">
             <div
-              className="w-12 h-12 border-2 flex items-center justify-center text-lg font-ui font-bold transition-colors"
+              className="w-11 h-11 rounded-lg border-2 flex items-center justify-center text-base transition-all"
               style={{
-                borderColor: player.dashCooldown > 0 ? 'hsl(var(--muted-foreground))' : ELEMENT_COLORS[player.element],
-                color: player.dashCooldown > 0 ? 'hsl(var(--muted-foreground))' : ELEMENT_COLORS[player.element],
+                borderColor: player.dashCooldown > 0 ? '#555' : ELEMENT_COLORS[player.element],
+                background: player.dashCooldown > 0 ? 'rgba(0,0,0,0.3)' : `${ELEMENT_COLORS[player.element]}15`,
                 opacity: player.dashCooldown > 0 ? 0.4 : 1,
-                boxShadow: player.dashCooldown <= 0 ? `0 0 10px ${ELEMENT_COLORS[player.element]}40` : 'none',
               }}
             >
-              ⚡
+              💨
             </div>
-            <span className="text-[10px] font-ui text-muted-foreground mt-1 block">DASH</span>
+            <span className="text-[7px] font-ui text-muted-foreground mt-0.5 block">SPACE</span>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function HudButton({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-8 h-8 rounded border border-border bg-black/50 flex items-center justify-center text-sm hover:bg-black/70 hover:border-foreground/30 transition-colors group relative"
+      title={label}
+    >
+      {icon}
+      <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] font-ui text-muted-foreground hidden group-hover:block whitespace-nowrap">
+        {label}
+      </span>
+    </button>
   );
 }

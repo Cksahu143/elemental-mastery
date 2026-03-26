@@ -1,5 +1,6 @@
 import { SaveData, ElementType, LoreEntry } from './types';
 import { LORE_ENTRIES } from './lore';
+import { EXPANDED_LORE } from './story';
 
 const SAVE_KEY = 'elemental_ascension_save';
 
@@ -42,7 +43,8 @@ export function deleteSave(): void {
 }
 
 export function getLoreEntries(unlockedIds: string[]): LoreEntry[] {
-  return LORE_ENTRIES.map(e => ({
+  const allEntries = [...LORE_ENTRIES, ...EXPANDED_LORE];
+  return allEntries.map(e => ({
     ...e,
     unlocked: unlockedIds.includes(e.id),
   }));
