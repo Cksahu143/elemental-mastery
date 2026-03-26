@@ -12,7 +12,7 @@ export type TransitionType = 'fade' | 'wipe' | 'iris' | 'dissolve';
 interface TransitionState {
   active: boolean;
   type: TransitionType;
-  progress: number; // 0 to 1
+  progress: number;
   duration: number;
   direction: 'in' | 'out';
   color: string;
@@ -58,7 +58,6 @@ export function renderTransition(ctx: CanvasRenderingContext2D) {
     case 'wipe': {
       ctx.fillStyle = transition.color;
       ctx.fillRect(0, 0, CANVAS_WIDTH * p, CANVAS_HEIGHT);
-      // Gradient edge
       const grad = ctx.createLinearGradient(CANVAS_WIDTH * p - 40, 0, CANVAS_WIDTH * p + 40, 0);
       grad.addColorStop(0, transition.color);
       grad.addColorStop(1, 'transparent');
@@ -67,7 +66,6 @@ export function renderTransition(ctx: CanvasRenderingContext2D) {
       break;
     }
     case 'iris': {
-      // Circular iris wipe
       const maxR = Math.sqrt(CANVAS_WIDTH * CANVAS_WIDTH + CANVAS_HEIGHT * CANVAS_HEIGHT) / 2;
       const r = maxR * (1 - p);
       ctx.save();
@@ -123,7 +121,6 @@ export function updateBossZoom(dt: number): { zoom: number; offsetX: number; off
     bossZoom.active = false;
     return null;
   }
-  // Ease in-out
   const t = bossZoom.progress;
   const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   const zoom = 1 + ease * 0.5 * (t < 0.5 ? 1 : 2 - 2 * t);
@@ -139,7 +136,6 @@ export function renderBossZoomOverlay(ctx: CanvasRenderingContext2D) {
   const t = bossZoom.progress;
   const color = ELEMENT_COLORS[bossZoom.zone];
 
-  // Dramatic vignette
   const vigAlpha = Math.sin(t * Math.PI) * 0.4;
   const vig = ctx.createRadialGradient(
     CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.15,
@@ -150,7 +146,6 @@ export function renderBossZoomOverlay(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  // Element color flash at peak
   if (t > 0.4 && t < 0.6) {
     const flashAlpha = (1 - Math.abs(t - 0.5) / 0.1) * 0.15;
     ctx.fillStyle = color;
@@ -162,7 +157,6 @@ export function renderBossZoomOverlay(ctx: CanvasRenderingContext2D) {
 
 // ─── Death Screen Overlay ───
 export function renderDeathOverlay(ctx: CanvasRenderingContext2D, deathTime: number) {
-  // Red vignette that grows
   const alpha = Math.min(0.6, deathTime * 0.3);
   const vig = ctx.createRadialGradient(
     CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.1,
@@ -174,7 +168,6 @@ export function renderDeathOverlay(ctx: CanvasRenderingContext2D, deathTime: num
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  // Blood drip effect from top
   if (deathTime > 0.5) {
     ctx.fillStyle = `rgba(139,0,0,${Math.min(0.3, (deathTime - 0.5) * 0.15)})`;
     for (let x = 0; x < CANVAS_WIDTH; x += 30 + Math.sin(x * 0.1) * 10) {
@@ -184,7 +177,7 @@ export function renderDeathOverlay(ctx: CanvasRenderingContext2D, deathTime: num
   }
 }
 
-// ─── Dynamic Torch Lighting ───
+// ─── Lightweight Torch Lighting (NO multiply composite — fixes blur!) ───
 export interface TorchLight {
   x: number;
   y: number;
@@ -202,46 +195,17 @@ export function renderDynamicLighting(
   cameraY: number,
   gameTime: number
 ) {
-  // Create a darkness overlay
-  ctx.save();
-  ctx.globalCompositeOperation = 'multiply';
-
-  // Base darkness
-  ctx.fillStyle = 'rgba(20,20,40,0.7)';
+  // Subtle vignette darkness instead of multiply overlay (prevents blur)
+  const vig = ctx.createRadialGradient(
+    CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.25,
+    CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.65
+  );
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = vig;
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  ctx.globalCompositeOperation = 'destination-out';
-
-  // Player light
-  const playerSX = playerX - cameraX;
-  const playerSY = playerY - cameraY;
-  const playerFlicker = 1 + Math.sin(gameTime * 8) * 0.05;
-  const playerGrad = ctx.createRadialGradient(playerSX, playerSY, 0, playerSX, playerSY, 120 * playerFlicker);
-  playerGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
-  playerGrad.addColorStop(0.5, 'rgba(255,255,255,0.4)');
-  playerGrad.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = playerGrad;
-  ctx.fillRect(playerSX - 120, playerSY - 120, 240, 240);
-
-  // Torch lights
-  for (const torch of torches) {
-    const sx = torch.x - cameraX;
-    const sy = torch.y - cameraY;
-    if (sx < -torch.radius || sx > CANVAS_WIDTH + torch.radius || sy < -torch.radius || sy > CANVAS_HEIGHT + torch.radius) continue;
-
-    const flicker = 1 + Math.sin(gameTime * 10 + torch.x * 0.1) * 0.1 + Math.cos(gameTime * 7 + torch.y * 0.1) * 0.05;
-    const r = torch.radius * flicker;
-    const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
-    grad.addColorStop(0, 'rgba(255,255,255,0.7)');
-    grad.addColorStop(0.4, 'rgba(255,255,255,0.3)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
-  }
-
-  ctx.restore();
-
-  // Add colored light overlays for torches
+  // Colored torch glows using screen blend (additive, no blur)
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   for (const torch of torches) {
@@ -250,24 +214,25 @@ export function renderDynamicLighting(
     if (sx < -torch.radius || sx > CANVAS_WIDTH + torch.radius || sy < -torch.radius || sy > CANVAS_HEIGHT + torch.radius) continue;
 
     const flicker = 1 + Math.sin(gameTime * 10 + torch.x * 0.1) * 0.1;
-    const r = torch.radius * 0.6 * flicker;
+    const r = torch.radius * 0.5 * flicker;
     const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
-    grad.addColorStop(0, `${torch.color}30`);
+    grad.addColorStop(0, `${torch.color}25`);
     grad.addColorStop(1, 'transparent');
     ctx.fillStyle = grad;
     ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
   }
 
   // Player colored glow
-  const pGrad = ctx.createRadialGradient(playerSX, playerSY, 0, playerSX, playerSY, 80);
-  pGrad.addColorStop(0, `${playerColor}20`);
+  const playerSX = playerX - cameraX;
+  const playerSY = playerY - cameraY;
+  const pGrad = ctx.createRadialGradient(playerSX, playerSY, 0, playerSX, playerSY, 60);
+  pGrad.addColorStop(0, `${playerColor}18`);
   pGrad.addColorStop(1, 'transparent');
   ctx.fillStyle = pGrad;
-  ctx.fillRect(playerSX - 80, playerSY - 80, 160, 160);
+  ctx.fillRect(playerSX - 60, playerSY - 60, 120, 120);
   ctx.restore();
 }
 
-// Collect torch positions from room tiles
 export function collectTorches(tiles: number[][], zone: ElementType, tileSize: number): TorchLight[] {
   const torches: TorchLight[] = [];
   const color = ELEMENT_COLORS[zone];
@@ -287,4 +252,131 @@ export function collectTorches(tiles: number[][], zone: ElementType, tileSize: n
     }
   }
   return torches;
+}
+
+// ─── POST-PROCESSING EFFECTS ───
+
+// Bloom effect on projectiles — renders glow halos
+export function renderBloom(
+  ctx: CanvasRenderingContext2D,
+  projectiles: { pos: { x: number; y: number }; element: ElementType; radius: number }[],
+  cameraX: number,
+  cameraY: number
+) {
+  if (projectiles.length === 0) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (const proj of projectiles) {
+    const sx = proj.pos.x - cameraX;
+    const sy = proj.pos.y - cameraY;
+    if (sx < -40 || sx > CANVAS_WIDTH + 40 || sy < -40 || sy > CANVAS_HEIGHT + 40) continue;
+
+    const color = ELEMENT_COLORS[proj.element];
+    const bloomRadius = proj.radius * 3;
+    const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, bloomRadius);
+    grad.addColorStop(0, `${color}40`);
+    grad.addColorStop(0.4, `${color}15`);
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(sx - bloomRadius, sy - bloomRadius, bloomRadius * 2, bloomRadius * 2);
+  }
+  ctx.restore();
+}
+
+// Chromatic aberration during screen shake
+export function renderChromaticAberration(
+  ctx: CanvasRenderingContext2D,
+  shakeIntensity: number
+) {
+  if (shakeIntensity < 2) return;
+  const offset = Math.min(shakeIntensity * 0.5, 4);
+
+  // Get current canvas image data for RGB split
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.08 * Math.min(shakeIntensity / 5, 1);
+  
+  // Red channel shift
+  ctx.fillStyle = 'rgba(255,0,0,1)';
+  ctx.fillRect(offset, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  
+  // Blue channel shift opposite direction
+  ctx.fillStyle = 'rgba(0,0,255,1)';
+  ctx.fillRect(-offset, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  
+  ctx.restore();
+}
+
+// Motion blur trail during dash/fast movement
+let motionBlurAlpha = 0;
+let motionBlurActive = false;
+
+export function triggerMotionBlur() {
+  motionBlurAlpha = 0.3;
+  motionBlurActive = true;
+}
+
+export function updateMotionBlur(dt: number) {
+  if (!motionBlurActive) return;
+  motionBlurAlpha -= dt * 0.8;
+  if (motionBlurAlpha <= 0) {
+    motionBlurAlpha = 0;
+    motionBlurActive = false;
+  }
+}
+
+export function renderMotionBlur(ctx: CanvasRenderingContext2D) {
+  if (!motionBlurActive || motionBlurAlpha <= 0) return;
+  // Semi-transparent dark overlay that creates a trail/ghost effect
+  ctx.save();
+  ctx.fillStyle = `rgba(10,10,20,${motionBlurAlpha * 0.4})`;
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  ctx.restore();
+}
+
+// Element aura glow around the player
+export function renderElementAura(
+  ctx: CanvasRenderingContext2D,
+  playerScreenX: number,
+  playerScreenY: number,
+  element: ElementType,
+  gameTime: number
+) {
+  const color = ELEMENT_COLORS[element];
+  const pulse = 0.5 + Math.sin(gameTime * 3) * 0.2;
+  const auraRadius = 28 + Math.sin(gameTime * 2) * 4;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  
+  // Outer aura ring
+  const grad = ctx.createRadialGradient(
+    playerScreenX, playerScreenY, auraRadius * 0.4,
+    playerScreenX, playerScreenY, auraRadius
+  );
+  grad.addColorStop(0, 'transparent');
+  grad.addColorStop(0.6, `${color}${safeHex(Math.floor(pulse * 30))}`);
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.fillRect(
+    playerScreenX - auraRadius, playerScreenY - auraRadius,
+    auraRadius * 2, auraRadius * 2
+  );
+
+  // Rotating element particles in aura
+  for (let i = 0; i < 4; i++) {
+    const angle = gameTime * 2 + (i / 4) * Math.PI * 2;
+    const orbitR = auraRadius * 0.7;
+    const px = playerScreenX + Math.cos(angle) * orbitR;
+    const py = playerScreenY + Math.sin(angle) * orbitR;
+    
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.4 + Math.sin(gameTime * 4 + i) * 0.2;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
