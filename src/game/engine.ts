@@ -1659,6 +1659,7 @@ function fireSkill(skillId: string) {
       player.pos.x = tx - 12;
       player.pos.y = ty - 12;
       player.invincible = 0.5;
+      triggerMotionBlur();
       // Damage at destination
       for (const enemy of room.enemies) {
         if (enemy.hp <= 0) continue;
