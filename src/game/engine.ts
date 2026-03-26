@@ -1231,12 +1231,27 @@ export function render(ctx: CanvasRenderingContext2D) {
 
   // Post-processing effects (rendered in screen space)
   ctx.save();
+  
+  // Motion blur trail (rendered first so it's behind everything else)
+  renderMotionBlur(ctx);
+  
   renderAmbient(ctx, room.zone, camera, gameTime);
   renderIceFrost(ctx, room.zone, player.hp, player.maxHp);
   renderHeatDistortion(ctx, room.zone, gameTime);
   
-  // Dynamic torch lighting
+  // Dynamic torch lighting (lightweight vignette, no multiply blur)
   renderDynamicLighting(ctx, torchCache, player.pos.x + 12, player.pos.y + 12, ELEMENT_COLORS[player.element], camera.x, camera.y, gameTime);
+  
+  // Bloom on projectiles
+  renderBloom(ctx, projectiles, camera.x, camera.y);
+  
+  // Element aura around player
+  if (player.hp > 0) {
+    renderElementAura(ctx, player.pos.x + 12 - camera.x, player.pos.y + 12 - camera.y, player.element, gameTime);
+  }
+  
+  // Chromatic aberration during screen shake
+  renderChromaticAberration(ctx, screenShake);
   
   // Boss intro zoom overlay
   renderBossZoomOverlay(ctx);
