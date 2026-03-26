@@ -1,5 +1,6 @@
 import { SaveData, ElementType, LoreEntry } from './types';
 import { LORE_ENTRIES } from './lore';
+import { EXPANDED_LORE } from './story';
 
 const SAVE_KEY = 'elemental_ascension_save';
 
