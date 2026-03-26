@@ -11,10 +11,13 @@ const CATEGORY_NAMES: Record<string, string> = {
   corruption: 'The Corruption',
   bearers: 'The Fragment Bearers',
   prophecy: 'Ancient Prophecy',
+  villain: 'Malachar',
+  guide: 'Aethon',
+  world: 'The Old World',
 };
 
 export default function LoreCodex({ entries, onClose }: LoreCodexProps) {
-  const categories = ['guardians', 'shattering', 'corruption', 'bearers', 'prophecy'];
+  const categories = ['guardians', 'shattering', 'corruption', 'bearers', 'prophecy', 'villain', 'guide', 'world'];
 
   return (
     <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center">
