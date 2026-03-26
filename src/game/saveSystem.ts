@@ -43,7 +43,8 @@ export function deleteSave(): void {
 }
 
 export function getLoreEntries(unlockedIds: string[]): LoreEntry[] {
-  return LORE_ENTRIES.map(e => ({
+  const allEntries = [...LORE_ENTRIES, ...EXPANDED_LORE];
+  return allEntries.map(e => ({
     ...e,
     unlocked: unlockedIds.includes(e.id),
   }));
