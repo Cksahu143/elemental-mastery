@@ -1,5 +1,73 @@
 import { GameRoom, Enemy, ElementType, EnemyType, Position, TILE_SIZE } from './types';
 
+// Malachar boss arena generator
+export function generateMalacharArena(): GameRoom {
+  const width = 24;
+  const height = 20;
+  const tiles: number[][] = [];
+  
+  for (let y = 0; y < height; y++) {
+    tiles[y] = [];
+    for (let x = 0; x < width; x++) {
+      if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+        tiles[y][x] = 1;
+      } else {
+        tiles[y][x] = 0;
+      }
+    }
+  }
+  
+  // Elemental hazard ring around arena
+  const cx = Math.floor(width / 2);
+  const cy = Math.floor(height / 2);
+  for (let a = 0; a < 16; a++) {
+    const angle = (a / 16) * Math.PI * 2;
+    const r = 7;
+    const hx = cx + Math.round(Math.cos(angle) * r);
+    const hy = cy + Math.round(Math.sin(angle) * r);
+    if (hx > 0 && hx < width - 1 && hy > 0 && hy < height - 1) {
+      tiles[hy][hx] = 2;
+    }
+  }
+  
+  // Corner hazard pools
+  for (const [ox, oy] of [[3,3],[width-4,3],[3,height-4],[width-4,height-4]]) {
+    for (let dy = 0; dy < 2; dy++) {
+      for (let dx = 0; dx < 2; dx++) {
+        if (oy + dy > 0 && oy + dy < height - 1 && ox + dx > 0 && ox + dx < width - 1) {
+          tiles[oy + dy][ox + dx] = 2;
+        }
+      }
+    }
+  }
+  
+  // Malachar boss
+  const boss: Enemy = {
+    id: 'malachar_boss',
+    type: 'boss',
+    pos: { x: cx * TILE_SIZE, y: 4 * TILE_SIZE },
+    hp: 5000,
+    maxHp: 5000,
+    speed: 1.8,
+    damage: 50,
+    attackCooldown: 0.6,
+    attackTimer: 0,
+    element: 'void' as ElementType,
+    isBoss: true,
+    phase: 1,
+    state: 'idle',
+    stateTimer: 0,
+    statusEffects: [],
+    knockback: { x: 0, y: 0 },
+    isTired: false,
+    tiredTimer: 0,
+    summonCooldown: 0,
+  };
+  (boss as any).isMalachar = true;
+  
+  return { tiles, enemies: [boss], width, height, exits: [], cleared: false, zone: 'void' as ElementType };
+}
+
 let enemyIdCounter = 0;
 
 function createEnemy(type: EnemyType, pos: Position, element: ElementType, isBoss = false): Enemy {
@@ -72,10 +140,10 @@ export function generateRoom(zone: ElementType, floor: number, isBossRoom: boole
   const enemies: Enemy[] = [];
   if (isBossRoom) {
     const boss = createEnemy('boss', { x: cx * TILE_SIZE, y: 3 * TILE_SIZE }, zone, true);
-    // Scale boss with floor
     boss.hp = Math.floor(boss.hp * (1 + floor * 0.12));
     boss.maxHp = boss.hp;
     boss.damage = Math.floor(boss.damage * (1 + floor * 0.08));
+    boss.speed *= 1.1;
     enemies.push(boss);
     // Add lava/hazard pools in boss arena
     const hazardPositions = [
