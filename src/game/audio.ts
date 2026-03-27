@@ -462,6 +462,18 @@ const BOSS_TRACKS: Record<string, BossTrack> = {
     drumIntensity: 0.7,
     flavor: 'dark',
   },
+  malachar: {
+    bpm: 140,
+    scale: [65.4, 73.4, 82.4, 87.3, 98, 110, 123.5, 131, 147, 165, 196],
+    bassPattern: [0, 0, 2, 1, 4, 3, 1, 0],
+    melodyPattern: [8, 9, 10, -1, 9, 8, 7, -1, 10, -1, 8, 9, -1, 7, 6, -1],
+    bassType: 'sawtooth',
+    leadType: 'square',
+    bassVol: 0.12,
+    leadVol: 0.055,
+    drumIntensity: 1.0,
+    flavor: 'aggressive',
+  },
 };
 
 export function startBossMusic(zone: string) {

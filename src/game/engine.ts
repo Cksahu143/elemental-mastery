@@ -1103,7 +1103,6 @@ function onEnemyKill(enemy: Enemy) {
     };
     const loreId = BOSS_LORE_MAP[enemy.element];
     if (loreId) onLoreFound?.(loreId);
-    // Also unlock the fall/extra lore
     const extraLore: Record<string, string> = {
       fire: 'guardian_ignis_fall',
       ice: 'guardian_glacius_archive',
@@ -1116,6 +1115,13 @@ function onEnemyKill(enemy: Enemy) {
     };
     if (extraLore[enemy.element]) onLoreFound?.(extraLore[enemy.element]);
     
+    // Malachar defeat is handled specially
+    if ((enemy as any).isMalachar) {
+      malacharActive = false;
+      onBossDefeated?.('void');
+      return;
+    }
+
     // Unlock the boss's element
     if (!player.unlockedElements.includes(enemy.element)) {
       player.unlockedElements.push(enemy.element);
