@@ -4,6 +4,7 @@ import {
   ELEMENT_COLORS, ELEMENT_COLORS_DARK, StatusEffect, SKILLS,
 } from './types';
 import { generateRoom, getTileColor } from './dungeon';
+import { generateMalacharArena } from './dungeon';
 import { SaveData } from './types';
 import { SFX, startAmbientMusic, startBossMusic, stopBossMusic } from './audio';
 import type { KingdomBonuses } from './kingdom';
@@ -73,6 +74,34 @@ export function getRoom(): GameRoom { return room; }
 // Track applied kingdom bonuses so we can strip them when saving
 let appliedKingdomBonuses: KingdomBonuses = { attackBonus: 0, hpBonus: 0, manaBonus: 0, xpMultiplier: 1, goldMultiplier: 1, hpRegen: 0, manaRegen: 0, defenseBonus: 0, elemPowerBonus: 0, speedBonus: 0, costReduction: 1 };
 
+// ─── Malachar boss state ───
+let malacharPhaseElement: ElementType = 'fire';
+let malacharElementTimer = 0;
+const MALACHAR_ELEMENTS: ElementType[] = ['fire', 'ice', 'lightning', 'shadow', 'earth', 'wind', 'nature', 'void'];
+let malacharActive = false;
+
+export function startMalacharFight() {
+  malacharActive = true;
+  room = generateMalacharArena();
+  const cx = Math.floor(room.width / 2);
+  player.pos = { x: cx * TILE_SIZE, y: (room.height - 3) * TILE_SIZE };
+  projectiles = [];
+  damageNumbers = [];
+  particles = [];
+  resetAmbient();
+  torchCache = collectTorches(room.tiles, 'void', TILE_SIZE);
+  startTransition('iris', 'in', 0.8);
+  SFX.bossRoar();
+  startBossMusic('malachar');
+  const boss = room.enemies.find(e => (e as any).isMalachar);
+  if (boss) {
+    startBossIntroZoom(boss.pos.x, boss.pos.y, 'void');
+  }
+  onBossEncounter?.('void');
+}
+
+export function isMalacharActive(): boolean { return malacharActive; }
+
 export function initGame(save: SaveData, kingdomBonuses?: KingdomBonuses) {
   initSprites();
   const kb = kingdomBonuses;
@@ -101,6 +130,7 @@ export function initGame(save: SaveData, kingdomBonuses?: KingdomBonuses) {
   };
   floor = save.currentFloor;
   bossDialogueShown = false;
+  malacharActive = false;
   loadRoom(save.currentZone, floor);
   startAmbientMusic(save.currentZone);
 }
@@ -204,6 +234,31 @@ export function update(dt: number) {
   updateTransition(dt);
   updateBossZoom(dt);
   updateMotionBlur(dt);
+
+  // Malachar element cycling
+  if (malacharActive) {
+    malacharElementTimer += dt;
+    if (malacharElementTimer > 4) {
+      malacharElementTimer = 0;
+      const idx = MALACHAR_ELEMENTS.indexOf(malacharPhaseElement);
+      malacharPhaseElement = MALACHAR_ELEMENTS[(idx + 1) % MALACHAR_ELEMENTS.length];
+      const boss = room.enemies.find(e => (e as any).isMalachar);
+      if (boss && boss.hp > 0) {
+        boss.element = malacharPhaseElement;
+        // Element shift burst
+        for (let i = 0; i < 12; i++) {
+          const angle = (i / 12) * Math.PI * 2;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: boss.pos.x + 12, y: boss.pos.y + 12 },
+            vel: { x: Math.cos(angle) * 160, y: Math.sin(angle) * 160 },
+            damage: boss.damage * 0.5, element: malacharPhaseElement, fromPlayer: false, lifetime: 1.5, radius: 7,
+          });
+        }
+        screenShake = 6;
+      }
+    }
+  }
 
   // Update ambient environment effects
   updateAmbient(dt, player.element, camera, room.width, room.height);
@@ -1713,6 +1768,410 @@ function fireSkill(skillId: string) {
       player.hp = Math.min(player.maxHp, player.hp + totalDrain);
       if (totalDrain > 0) {
         addDamageNumber(player.pos, Math.floor(totalDrain), 'shadow', true);
+      }
+      break;
+    }
+
+    // ─── Earth Skills ───
+    case 'stone_spike': {
+      // Erupting spikes in a line toward cursor
+      const angle = Math.atan2(fy, fx);
+      for (let i = 1; i <= 6; i++) {
+        const delay = i * 80;
+        setTimeout(() => {
+          const sx = px + Math.cos(angle) * i * 40;
+          const sy = py + Math.sin(angle) * i * 40;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: sx, y: sy },
+            vel: { x: 0, y: 0 },
+            damage: baseDmg * 0.9,
+            element: 'earth', fromPlayer: true, lifetime: 0.6, radius: 16,
+          });
+          for (let p = 0; p < 6; p++) {
+            particles.push({
+              x: sx, y: sy, vx: (Math.random()-0.5)*100, vy: -60-Math.random()*80,
+              life: 0.5, maxLife: 0.5, color: '#D97706', size: 3+Math.random()*3,
+            });
+          }
+          screenShake = 3;
+        }, delay);
+      }
+      break;
+    }
+    case 'quake': {
+      // Ground slam — massive AoE stun + damage
+      screenShake = 12;
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist({ x: px, y: py }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+        if (d < 180) {
+          const dmg = baseDmg * 1.4 * (1 - d / 180);
+          enemy.hp -= dmg;
+          addDamageNumber(enemy.pos, Math.floor(dmg), 'earth', dmg > baseDmg);
+          if (!enemy.statusEffects.some(e => e.type === 'slow')) {
+            enemy.statusEffects.push({ type: 'slow', duration: 3, damage: 0 });
+          }
+          enemy.knockback.x += (enemy.pos.x - px) * 0.15;
+          enemy.knockback.y += (enemy.pos.y - py) * 0.15;
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+        }
+      }
+      // Shockwave rings
+      for (let ring = 0; ring < 3; ring++) {
+        setTimeout(() => {
+          for (let i = 0; i < 16; i++) {
+            const a = (i / 16) * Math.PI * 2;
+            const r = 40 + ring * 50;
+            particles.push({
+              x: px + Math.cos(a) * r, y: py + Math.sin(a) * r,
+              vx: Math.cos(a) * 30, vy: Math.sin(a) * 30,
+              life: 0.4, maxLife: 0.4, color: '#92400E', size: 4,
+            });
+          }
+        }, ring * 100);
+      }
+      break;
+    }
+    case 'boulder_toss': {
+      // Homing boulder projectile
+      const angle = Math.atan2(fy, fx);
+      const boulder = {
+        id: `proj_${projIdCounter++}`,
+        pos: { x: px, y: py },
+        vel: { x: Math.cos(angle) * 200, y: Math.sin(angle) * 200 },
+        damage: baseDmg * 2.0,
+        element: 'earth' as ElementType, fromPlayer: true, lifetime: 1.5, radius: 14,
+      };
+      projectiles.push(boulder);
+      // Trail particles
+      for (let t = 0; t < 8; t++) {
+        setTimeout(() => {
+          particles.push({
+            x: boulder.pos.x, y: boulder.pos.y,
+            vx: (Math.random()-0.5)*40, vy: (Math.random()-0.5)*40,
+            life: 0.3, maxLife: 0.3, color: '#D97706', size: 5,
+          });
+        }, t * 100);
+      }
+      break;
+    }
+    case 'terra_fortress': {
+      // Stone armor — invincibility + damage reflection
+      player.invincible = 4;
+      screenShake = 6;
+      // Stone armor particles
+      for (let i = 0; i < 20; i++) {
+        const a = (i / 20) * Math.PI * 2;
+        particles.push({
+          x: px + Math.cos(a) * 30, y: py + Math.sin(a) * 30,
+          vx: Math.cos(a) * 10, vy: Math.sin(a) * 10,
+          life: 3, maxLife: 3, color: '#92400E', size: 5,
+        });
+      }
+      // Reflect damage to nearby enemies
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist({ x: px, y: py }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+        if (d < 100) {
+          enemy.hp -= baseDmg * 0.8;
+          addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.8), 'earth', true);
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+        }
+      }
+      break;
+    }
+    // ─── Wind Skills ───
+    case 'gust_slash': {
+      // Fast wind blade with slight homing
+      for (let i = -1; i <= 1; i++) {
+        const angle = Math.atan2(fy, fx) + i * 0.15;
+        projectiles.push({
+          id: `proj_${projIdCounter++}`,
+          pos: { x: px, y: py },
+          vel: { x: Math.cos(angle) * 350, y: Math.sin(angle) * 350 },
+          damage: baseDmg * 0.7,
+          element: 'wind', fromPlayer: true, lifetime: 0.5, radius: 6,
+        });
+      }
+      break;
+    }
+    case 'cyclone': {
+      // Tornado at cursor that pulls and shreds
+      const tx = mousePos.x + camera.x;
+      const ty = mousePos.y + camera.y;
+      for (let t = 0; t < 15; t++) {
+        setTimeout(() => {
+          for (const enemy of room.enemies) {
+            if (enemy.hp <= 0) continue;
+            const d = dist({ x: tx, y: ty }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+            if (d < 120) {
+              enemy.knockback.x += (tx - enemy.pos.x) * 0.05;
+              enemy.knockback.y += (ty - enemy.pos.y) * 0.05;
+              enemy.hp -= baseDmg * 0.2;
+              if (t % 3 === 0) addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.2), 'wind', false);
+              if (enemy.hp <= 0) onEnemyKill(enemy);
+            }
+          }
+          const a = t * 0.8;
+          for (let p = 0; p < 4; p++) {
+            particles.push({
+              x: tx + Math.cos(a + p) * (40 - t * 2), y: ty + Math.sin(a + p) * (40 - t * 2),
+              vx: Math.cos(a + p) * 80, vy: Math.sin(a + p) * 80 - 20,
+              life: 0.4, maxLife: 0.4, color: '#34D399', size: 3,
+            });
+          }
+        }, t * 100);
+      }
+      break;
+    }
+    case 'aerial_barrage': {
+      // Volley of wind blades in all directions
+      for (let i = 0; i < 16; i++) {
+        const angle = (i / 16) * Math.PI * 2;
+        projectiles.push({
+          id: `proj_${projIdCounter++}`,
+          pos: { x: px, y: py },
+          vel: { x: Math.cos(angle) * 280, y: Math.sin(angle) * 280 },
+          damage: baseDmg * 0.6,
+          element: 'wind', fromPlayer: true, lifetime: 0.6, radius: 5,
+        });
+      }
+      screenShake = 5;
+      break;
+    }
+    case 'eye_of_storm': {
+      // Massive speed + damage boost aura
+      player.invincible = 3;
+      // Speed boost via particles visual
+      for (let t = 0; t < 20; t++) {
+        setTimeout(() => {
+          const a = t * 0.5;
+          for (let i = 0; i < 4; i++) {
+            const angle = a + (i / 4) * Math.PI * 2;
+            const r = 20 + t;
+            particles.push({
+              x: player.pos.x + 12 + Math.cos(angle) * r, 
+              y: player.pos.y + 12 + Math.sin(angle) * r,
+              vx: Math.cos(angle) * 60, vy: Math.sin(angle) * 60,
+              life: 0.5, maxLife: 0.5, color: '#6EE7B7', size: 3,
+            });
+          }
+          // Damage nearby enemies
+          for (const enemy of room.enemies) {
+            if (enemy.hp <= 0) continue;
+            const d = dist(player.pos, enemy.pos);
+            if (d < 100) {
+              enemy.hp -= baseDmg * 0.3;
+              if (t % 4 === 0) addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.3), 'wind', false);
+              applyElementEffect(enemy, 'wind');
+              if (enemy.hp <= 0) onEnemyKill(enemy);
+            }
+          }
+        }, t * 100);
+      }
+      break;
+    }
+    // ─── Nature Skills ───
+    case 'vine_grasp': {
+      // Root enemies around cursor
+      const tx = mousePos.x + camera.x;
+      const ty = mousePos.y + camera.y;
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist({ x: tx, y: ty }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+        if (d < 120) {
+          enemy.hp -= baseDmg * 0.5;
+          if (!enemy.statusEffects.some(e => e.type === 'slow')) {
+            enemy.statusEffects.push({ type: 'slow', duration: 4, damage: 0 });
+          }
+          addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.5), 'nature', false);
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+          // Vine particles
+          for (let i = 0; i < 5; i++) {
+            particles.push({
+              x: enemy.pos.x + 12, y: enemy.pos.y + 24,
+              vx: (Math.random()-0.5)*30, vy: -40-Math.random()*40,
+              life: 0.6, maxLife: 0.6, color: '#22C55E', size: 3,
+            });
+          }
+        }
+      }
+      break;
+    }
+    case 'spore_cloud': {
+      // Poison cloud at cursor
+      const tx = mousePos.x + camera.x;
+      const ty = mousePos.y + camera.y;
+      for (let t = 0; t < 10; t++) {
+        setTimeout(() => {
+          for (const enemy of room.enemies) {
+            if (enemy.hp <= 0) continue;
+            const d = dist({ x: tx, y: ty }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+            if (d < 100) {
+              enemy.hp -= baseDmg * 0.25;
+              if (!enemy.statusEffects.some(e => e.type === 'burn')) {
+                enemy.statusEffects.push({ type: 'burn', duration: 4, damage: 4 });
+              }
+              if (t % 3 === 0) addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.25), 'nature', false);
+              if (enemy.hp <= 0) onEnemyKill(enemy);
+            }
+          }
+          for (let p = 0; p < 3; p++) {
+            particles.push({
+              x: tx + (Math.random()-0.5)*80, y: ty + (Math.random()-0.5)*80,
+              vx: (Math.random()-0.5)*20, vy: -10-Math.random()*20,
+              life: 0.8, maxLife: 0.8, color: '#86efac', size: 4+Math.random()*4,
+            });
+          }
+        }, t * 200);
+      }
+      break;
+    }
+    case 'regrowth': {
+      // Heal over time
+      for (let t = 0; t < 8; t++) {
+        setTimeout(() => {
+          const heal = player.maxHp * 0.05;
+          player.hp = Math.min(player.maxHp, player.hp + heal);
+          addDamageNumber(player.pos, Math.floor(heal), 'nature', true);
+          for (let i = 0; i < 4; i++) {
+            particles.push({
+              x: player.pos.x + 12 + (Math.random()-0.5)*30,
+              y: player.pos.y + 20,
+              vx: (Math.random()-0.5)*20, vy: -30-Math.random()*20,
+              life: 0.5, maxLife: 0.5, color: '#4ADE80', size: 3,
+            });
+          }
+        }, t * 400);
+      }
+      break;
+    }
+    case 'overgrowth': {
+      // Massive roots fill the room
+      for (let i = 0; i < 15; i++) {
+        setTimeout(() => {
+          const rx = px + (Math.random()-0.5) * 300;
+          const ry = py + (Math.random()-0.5) * 300;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: rx, y: ry },
+            vel: { x: 0, y: 0 },
+            damage: baseDmg * 0.8,
+            element: 'nature', fromPlayer: true, lifetime: 0.8, radius: 20,
+          });
+          for (let p = 0; p < 6; p++) {
+            particles.push({
+              x: rx, y: ry, vx: (Math.random()-0.5)*80, vy: -60-Math.random()*60,
+              life: 0.6, maxLife: 0.6, color: '#22C55E', size: 4+Math.random()*4,
+            });
+          }
+          screenShake = 3;
+        }, i * 100);
+      }
+      break;
+    }
+    // ─── Void Skills ───
+    case 'null_bolt': {
+      // Homing void bolt that ignores defense
+      const nearest = room.enemies.filter(e => e.hp > 0).sort((a, b) => 
+        dist(player.pos, a.pos) - dist(player.pos, b.pos)
+      )[0];
+      const angle = nearest 
+        ? Math.atan2(nearest.pos.y - py, nearest.pos.x - px) 
+        : Math.atan2(fy, fx);
+      projectiles.push({
+        id: `proj_${projIdCounter++}`,
+        pos: { x: px, y: py },
+        vel: { x: Math.cos(angle) * 300, y: Math.sin(angle) * 300 },
+        damage: baseDmg * 1.5,
+        element: 'void', fromPlayer: true, lifetime: 1.0, radius: 8,
+      });
+      // Trail
+      for (let i = 0; i < 6; i++) {
+        particles.push({
+          x: px, y: py,
+          vx: Math.cos(angle) * 50 + (Math.random()-0.5)*40,
+          vy: Math.sin(angle) * 50 + (Math.random()-0.5)*40,
+          life: 0.3, maxLife: 0.3, color: '#EC4899', size: 3,
+        });
+      }
+      break;
+    }
+    case 'dimension_rift': {
+      // Teleport enemies randomly
+      const tx = mousePos.x + camera.x;
+      const ty = mousePos.y + camera.y;
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0 || enemy.isBoss) continue;
+        const d = dist({ x: tx, y: ty }, enemy.pos);
+        if (d < 150) {
+          const randX = (2 + Math.random() * (room.width - 4)) * TILE_SIZE;
+          const randY = (2 + Math.random() * (room.height - 4)) * TILE_SIZE;
+          // Particles at old pos
+          for (let i = 0; i < 5; i++) {
+            particles.push({
+              x: enemy.pos.x + 12, y: enemy.pos.y + 12,
+              vx: (Math.random()-0.5)*80, vy: (Math.random()-0.5)*80,
+              life: 0.4, maxLife: 0.4, color: '#EC4899', size: 3,
+            });
+          }
+          enemy.pos.x = randX;
+          enemy.pos.y = randY;
+          enemy.hp -= baseDmg * 0.6;
+          addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.6), 'void', false);
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+        }
+      }
+      screenShake = 5;
+      break;
+    }
+    case 'entropy_field': {
+      // Weaken all enemies in range
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist({ x: px, y: py }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+        if (d < 160) {
+          enemy.hp -= baseDmg * 0.5;
+          if (!enemy.statusEffects.some(e => e.type === 'slow')) {
+            enemy.statusEffects.push({ type: 'slow', duration: 5, damage: 0 });
+          }
+          enemy.damage = Math.max(1, enemy.damage - 3);
+          addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.5), 'void', false);
+          if (enemy.hp <= 0) onEnemyKill(enemy);
+        }
+      }
+      // Visual field
+      for (let i = 0; i < 20; i++) {
+        const a = (i / 20) * Math.PI * 2;
+        const r = 80 + Math.random() * 80;
+        particles.push({
+          x: px + Math.cos(a) * r, y: py + Math.sin(a) * r,
+          vx: -Math.cos(a) * 40, vy: -Math.sin(a) * 40,
+          life: 0.8, maxLife: 0.8, color: '#F472B6', size: 3,
+        });
+      }
+      break;
+    }
+    case 'singularity': {
+      // Catastrophic all-screen damage
+      screenShake = 20;
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const dmg = baseDmg * 3.0;
+        enemy.hp -= dmg;
+        addDamageNumber(enemy.pos, Math.floor(dmg), 'void', true);
+        if (enemy.hp <= 0) onEnemyKill(enemy);
+      }
+      // Black hole visual
+      for (let i = 0; i < 40; i++) {
+        const a = (i / 40) * Math.PI * 2;
+        const r = 20 + Math.random() * 200;
+        particles.push({
+          x: px + Math.cos(a) * r, y: py + Math.sin(a) * r,
+          vx: -Math.cos(a) * r, vy: -Math.sin(a) * r,
+          life: 0.8, maxLife: 0.8, color: i % 2 === 0 ? '#EC4899' : '#A855F7', size: 3 + Math.random() * 5,
+        });
       }
       break;
     }
