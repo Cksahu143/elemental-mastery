@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, SKILLS } from '../game/types';
-import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, unlockSkill, getActiveSkills, setKingdomRegen, getCameraMode, getGameTime } from '../game/engine';
+import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, unlockSkill, getActiveSkills, setKingdomRegen, getCameraMode, getGameTime, startMalacharFight, isMalacharActive } from '../game/engine';
 import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/saveSystem';
 import { POST_BOSS_DIALOGUES } from '../game/lore';
 import { SFX } from '../game/audio';
@@ -258,6 +258,11 @@ export default function GameCanvas() {
   const handleVillainCutsceneComplete = useCallback(() => {
     const zone = villainCutscene!;
     setVillainCutscene(null);
+    // After void boss villain cutscene, trigger Malachar fight
+    if (zone === 'void') {
+      startMalacharFight();
+      return;
+    }
     proceedToKingdom(zone);
   }, [villainCutscene, proceedToKingdom]);
 

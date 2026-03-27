@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { PlayerState, ElementType, ELEMENT_COLORS, SKILLS } from '../game/types';
 import { unlockSkill } from '../game/engine';
 
@@ -17,7 +18,27 @@ const ELEMENT_LABELS: Record<ElementType, string> = {
   void: '🕳️ Void',
 };
 
+function SkillDescriptionModal({ skill, color, onClose }: { skill: { name: string; description: string; manaCost: number; unlockLevel: number }; color: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center" onClick={onClose}>
+      <div className="bg-card border-2 p-6 max-w-md w-full mx-4" style={{ borderColor: color }} onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-display font-bold mb-2" style={{ color }}>{skill.name}</h3>
+        <p className="text-sm font-ui text-foreground leading-relaxed mb-4">{skill.description}</p>
+        <div className="flex items-center justify-between text-xs font-ui text-muted-foreground">
+          <span>{skill.manaCost} MP</span>
+          <span>Unlock at Level {skill.unlockLevel}</span>
+        </div>
+        <button onClick={onClose} className="w-full mt-4 py-2 text-xs font-ui uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground transition-colors">
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function SkillTree({ player, onClose }: SkillTreeProps) {
+  const [readMoreSkill, setReadMoreSkill] = useState<{ skill: any; color: string } | null>(null);
+
   const handleUnlock = (skillId: string, manaCost: number) => {
     if (player.skills.includes(skillId)) return;
     if (player.statPoints < 1) return;
@@ -90,7 +111,18 @@ export default function SkillTree({ player, onClose }: SkillTreeProps) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-ui font-bold text-foreground">{skill.name}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">{skill.description}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {skill.description.length > 40 ? skill.description.slice(0, 40) + '...' : skill.description}
+                              {skill.description.length > 40 && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setReadMoreSkill({ skill, color }); }}
+                                  className="ml-1 underline hover:text-foreground transition-colors"
+                                  style={{ color }}
+                                >
+                                  more
+                                </button>
+                              )}
+                            </p>
                             <p className="text-[10px] font-ui" style={{ color }}>{skill.manaCost} MP</p>
                           </div>
                           {!isOwned && (
@@ -128,6 +160,14 @@ export default function SkillTree({ player, onClose }: SkillTreeProps) {
         >
           Close
         </button>
+
+      {readMoreSkill && (
+        <SkillDescriptionModal
+          skill={readMoreSkill.skill}
+          color={readMoreSkill.color}
+          onClose={() => setReadMoreSkill(null)}
+        />
+      )}
       </div>
     </div>
   );

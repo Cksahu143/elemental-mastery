@@ -1,5 +1,4 @@
-// 3D Mode Renderer using React Three Fiber
-import { useRef, useMemo, useEffect, useState } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ElementType, ELEMENT_COLORS, TILE_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT, GameRoom, PlayerState, Enemy } from '../game/types';
@@ -190,20 +189,8 @@ function CameraController({ player }: { player: PlayerState }) {
   return null;
 }
 
-// ─── Main 3D Scene ───
-function Scene3D({ gameTime }: { gameTime: number }) {
-  const [sceneData, setSceneData] = useState<{ player: PlayerState; room: GameRoom } | null>(null);
-
-  useFrame(() => {
-    const player = getPlayer();
-    const room = getRoom();
-    if (player && room) {
-      setSceneData({ player, room });
-    }
-  });
-
-  if (!sceneData) return null;
-  const { player, room } = sceneData;
+function Scene3D({ gameTime, player, room }: { gameTime: number; player: PlayerState; room: GameRoom }) {
+  if (!player || !room) return null;
 
   return (
     <>
@@ -229,6 +216,11 @@ interface Game3DCanvasProps {
 }
 
 export default function Game3DCanvas({ gameTime }: Game3DCanvasProps) {
+  const player = getPlayer();
+  const room = getRoom();
+
+  if (!player || !room) return null;
+
   return (
     <div style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }} className="border border-border">
       <Canvas
@@ -238,7 +230,7 @@ export default function Game3DCanvas({ gameTime }: Game3DCanvasProps) {
           gl.setClearColor('#0a0a14');
         }}
       >
-        <Scene3D gameTime={gameTime} />
+        <Scene3D gameTime={gameTime} player={player} room={room} />
       </Canvas>
     </div>
   );

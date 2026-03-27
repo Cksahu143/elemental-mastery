@@ -9,6 +9,7 @@ import bossEarthUrl from '../assets/boss-earth.png';
 import bossWindUrl from '../assets/boss-wind.png';
 import bossNatureUrl from '../assets/boss-nature.png';
 import bossVoidUrl from '../assets/boss-void.png';
+import bossMalacharUrl from '../assets/boss-malachar.png';
 import enemiesSpriteUrl from '../assets/enemies-sprite.png';
 import enemiesElementalUrl from '../assets/enemies-elemental.png';
 import dungeonTilesUrl from '../assets/dungeon-tiles.png';
@@ -52,6 +53,7 @@ export function initSprites() {
   loadSprite('boss_wind', bossWindUrl, 1);
   loadSprite('boss_nature', bossNatureUrl, 1);
   loadSprite('boss_void', bossVoidUrl, 1);
+  loadSprite('boss_malachar', bossMalacharUrl, 1);
   loadSprite('enemies', enemiesSpriteUrl, 4);
   loadSprite('enemies_elemental', enemiesElementalUrl, 4);
   loadSprite('tiles', dungeonTilesUrl, 1);
@@ -174,13 +176,14 @@ export function drawEnemy(
 
   const sheet = spriteSheets['enemies'];
   const bossSheet = enemy.isBoss ? spriteSheets[`boss_${enemy.element}`] : null;
-  const size = enemy.isBoss ? 48 : enemy.type === 'tank' ? 36 : enemy.type === 'miniboss' ? 32 : 28;
+  const malacharSheet = (enemy as any).isMalachar ? spriteSheets['boss_malachar'] : null;
+  const size = (enemy as any).isMalachar ? 72 : enemy.isBoss ? 64 : enemy.type === 'tank' ? 36 : enemy.type === 'miniboss' ? 32 : 28;
   const offset = (size - 24) / 2;
   const ex = enemy.pos.x;
   const ey = enemy.pos.y;
 
   // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
   ctx.beginPath();
   ctx.ellipse(ex + 12, ey + size - offset - 2, size * 0.4, size * 0.15, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -190,13 +193,28 @@ export function drawEnemy(
     ctx.shadowColor = ELEMENT_COLORS[enemy.element];
     ctx.shadowBlur = 20 + Math.sin(gameTime * 3) * 8;
   }
+  // Malachar special glow
+  if ((enemy as any).isMalachar) {
+    const mPhase = enemy.phase;
+    const mColors = ['#FF0000', '#F97316', '#38BDF8', '#EAB308', '#A855F7', '#92400E', '#34D399', '#EC4899'];
+    const mColor = mColors[Math.floor(gameTime * 2) % mColors.length];
+    ctx.shadowColor = mColor;
+    ctx.shadowBlur = 30 + Math.sin(gameTime * 4) * 12;
+  }
 
-  if (enemy.isBoss && bossSheet?.loaded) {
-    // Draw boss sprite
+  if ((enemy as any).isMalachar && malacharSheet?.loaded) {
+    // Draw Malachar sprite — no box!
+    ctx.drawImage(
+      malacharSheet.image,
+      0, 0, malacharSheet.image.naturalWidth, malacharSheet.image.naturalHeight,
+      ex - offset - 12, ey - offset - 16, size + 24, size + 24
+    );
+  } else if (enemy.isBoss && bossSheet?.loaded) {
+    // Draw boss sprite — no box!
     ctx.drawImage(
       bossSheet.image,
       0, 0, bossSheet.image.naturalWidth, bossSheet.image.naturalHeight,
-      ex - offset - 8, ey - offset - 12, size + 16, size + 16
+      ex - offset - 12, ey - offset - 16, size + 24, size + 24
     );
   } else if (!enemy.isBoss && sheet?.loaded) {
     // Pick enemy frame based on type
@@ -207,18 +225,11 @@ export function drawEnemy(
     const sw = sheet.frameWidth;
     const sh = sheet.frameHeight;
     
-    // Tint with element color
     ctx.drawImage(
       sheet.image,
       frame * sw, 0, sw, sh,
       ex - offset, ey - offset - 4, size, size + 4
     );
-    
-    // Element color overlay
-    ctx.globalAlpha = 0.25;
-    ctx.fillStyle = ELEMENT_COLORS[enemy.element];
-    ctx.fillRect(ex - offset, ey - offset - 4, size, size + 4);
-    ctx.globalAlpha = 1;
   } else {
     // Fallback: Enhanced procedural enemy
     drawProceduralEnemy(ctx, enemy, gameTime);
@@ -307,24 +318,41 @@ function drawProceduralEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, gameTi
   const ey = enemy.pos.y;
   const bob = Math.sin(gameTime * 4 + ex) * 1;
 
-  // Body
-  ctx.fillStyle = darkColor;
-  ctx.fillRect(ex - offset, ey - offset + bob, size, size);
-  ctx.fillStyle = color;
-  ctx.fillRect(ex - offset + 2, ey - offset + 2 + bob, size - 4, size - 4);
+  // Body — rounded, no ugly square box
+  const cx = ex + 12;
+  const cy = ey + 12 + bob;
+  const halfS = size / 2;
 
-  // Eyes
+  // Organic body shape
+  ctx.fillStyle = darkColor;
+  ctx.beginPath();
+  ctx.arc(cx, cy, halfS * 0.85, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Element glow inner
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  ctx.arc(cx, cy, halfS * 0.7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Eyes  
   ctx.fillStyle = '#fff';
   const eyeSize = enemy.isBoss ? 4 : 2;
-  ctx.fillRect(ex + 4, ey + 4 + bob, eyeSize, eyeSize);
-  ctx.fillRect(ex + 14, ey + 4 + bob, eyeSize, eyeSize);
+  ctx.beginPath();
+  ctx.arc(cx - eyeSize * 2, cy - halfS * 0.2, eyeSize, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + eyeSize * 2, cy - halfS * 0.2, eyeSize, 0, Math.PI * 2);
+  ctx.fill();
 
   // Type indicator
-  ctx.fillStyle = '#000';
+  ctx.fillStyle = color;
   ctx.font = `${enemy.isBoss ? '16' : '11'}px Rajdhani`;
   ctx.textAlign = 'center';
   const typeChar = enemy.type === 'melee' ? '⚔' : enemy.type === 'ranged' ? '◎' : enemy.type === 'assassin' ? '☆' : enemy.type === 'tank' ? '■' : enemy.isBoss ? '♛' : '◆';
-  ctx.fillText(typeChar, ex + 12, ey + 18 + bob);
+  ctx.fillText(typeChar, cx, cy + halfS * 0.3);
 }
 
 // ─── Draw Enhanced Tile ───

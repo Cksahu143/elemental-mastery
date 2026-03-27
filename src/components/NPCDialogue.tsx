@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react';
 import DialogueParticles from './DialogueParticles';
 import CutsceneBackground from './CutsceneBackground';
 import { ElementType } from '../game/types';
+import portraitAethon from '../assets/portrait-aethon.png';
+import portraitMalachar from '../assets/portrait-malachar.png';
+
+function getPortrait(speaker: string): string | null {
+  const s = speaker.toLowerCase();
+  if (s.includes('aethon') || s.includes('chronicler')) return portraitAethon;
+  if (s.includes('malachar') || s.includes('architect')) return portraitMalachar;
+  return null;
+}
 
 interface NPCDialogueProps {
   lines: { speaker: string; text: string; color?: string }[];
@@ -46,12 +55,22 @@ export default function NPCDialogue({ lines, onComplete, zone = 'fire' }: NPCDia
           boxShadow: `0 0 20px ${line.color || 'hsl(var(--primary))'}30`,
         }}
       >
-        <p
-          className="text-xs font-ui font-bold uppercase tracking-widest mb-2"
-          style={{ color: line.color || 'hsl(var(--primary))' }}
-        >
-          {line.speaker}
-        </p>
+        <div className="flex items-center gap-3 mb-2">
+          {getPortrait(line.speaker) && (
+            <img
+              src={getPortrait(line.speaker)!}
+              alt={line.speaker}
+              className="w-10 h-10 rounded-full border object-cover"
+              style={{ borderColor: line.color || 'hsl(var(--primary))' }}
+            />
+          )}
+          <p
+            className="text-xs font-ui font-bold uppercase tracking-widest"
+            style={{ color: line.color || 'hsl(var(--primary))' }}
+          >
+            {line.speaker}
+          </p>
+        </div>
         <p className="text-sm font-display text-foreground leading-relaxed">
           {line.text}
         </p>

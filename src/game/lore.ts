@@ -200,6 +200,12 @@ export const BOSS_DIALOGUES: Record<string, string[]> = {
     "I am Nullex... the absence that devours.",
     "Reality itself unravels in my presence. YOU ARE NOTHING.",
   ],
+  malachar: [
+    "At last... we meet, little Fragment Bearer.",
+    "I am Malachar. I was the Fifth Guardian.",
+    "I held FIVE elements. You hold eight. Let us see which is stronger.",
+    "SHOW ME WHAT YOU'VE LEARNED!",
+  ],
 };
 
 export const POST_BOSS_DIALOGUES: Record<string, { speaker: string; text: string; color: string }[]> = {
