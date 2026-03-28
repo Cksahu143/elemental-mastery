@@ -245,11 +245,17 @@ export default function GameCanvas() {
   const handleBossCutsceneComplete = useCallback(() => {
     const zone = bossCutsceneZone!;
     setBossCutsceneZone(null);
+    // Malachar defeat — show his post-defeat dialogue
+    if (zone === 'malachar' as any) {
+      // Show Malachar post-defeat as villain cutscene
+      setVillainCutscene('malachar' as any);
+      return;
+    }
     // Show villain taunt
-    if (VILLAIN_TAUNTS[zone] && VILLAIN_TAUNTS[zone].length > 0) {
+    if (VILLAIN_TAUNTS[zone as ElementType] && VILLAIN_TAUNTS[zone as ElementType].length > 0) {
       setVillainCutscene(zone);
     } else {
-      proceedToKingdom(zone);
+      proceedToKingdom(zone as ElementType);
     }
   }, [bossCutsceneZone]);
 
