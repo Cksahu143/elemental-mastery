@@ -131,7 +131,7 @@ export default function GameCanvas() {
           }
         }
       },
-      onBossEncounter: (zone) => setBossZone(zone),
+      onBossEncounter: (zone) => setBossZone(zone as any),
       onLoreFound: (id) => {
         setLoreUnlocked(prev => {
           if (prev.includes(id)) return prev;
