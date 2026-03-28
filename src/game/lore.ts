@@ -202,9 +202,10 @@ export const BOSS_DIALOGUES: Record<string, string[]> = {
   ],
   malachar: [
     "At last... we meet, little Fragment Bearer.",
-    "I am Malachar. I was the Fifth Guardian.",
-    "I held FIVE elements. You hold eight. Let us see which is stronger.",
-    "SHOW ME WHAT YOU'VE LEARNED!",
+    "I am Malachar. The Fifth Guardian. The Architect of Ruin.",
+    "I held the harmony of FIVE elements. You hold eight fragments.",
+    "But fragments are just... PIECES. Let me show you TRUE power!",
+    "SHOW ME EVERYTHING YOU'VE LEARNED... AND WATCH IT FAIL!",
   ],
 };
 
