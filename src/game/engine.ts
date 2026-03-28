@@ -1343,9 +1343,19 @@ export function respawnPlayer() {
 export function switchElement(element: ElementType) {
   if (!player.unlockedElements.includes(element)) return;
   player.element = element;
-  floor = 1;
-  bossDialogueShown = false;
-  loadRoom(element, floor);
+  // Don't reset floor when switching mid-battle — only reset if not in Malachar fight
+  if (!malacharActive) {
+    floor = 1;
+    bossDialogueShown = false;
+    loadRoom(element, floor);
+  }
+  onStateChange?.();
+}
+
+// Switch element mid-combat without changing room
+export function switchElementBattle(element: ElementType) {
+  if (!player.unlockedElements.includes(element)) return;
+  player.element = element;
   onStateChange?.();
 }
 
