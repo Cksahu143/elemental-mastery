@@ -1116,10 +1116,10 @@ function onEnemyKill(enemy: Enemy) {
     };
     if (extraLore[enemy.element]) onLoreFound?.(extraLore[enemy.element]);
     
-    // Malachar defeat is handled specially
+    // Malachar defeat — use 'malachar' not 'void'
     if ((enemy as any).isMalachar) {
       malacharActive = false;
-      onBossDefeated?.('void');
+      onBossDefeated?.('malachar' as any);
       return;
     }
 
