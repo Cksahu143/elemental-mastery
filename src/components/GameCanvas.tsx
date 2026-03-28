@@ -228,6 +228,10 @@ export default function GameCanvas() {
       if (e.key.toLowerCase() === 'm' && phase === 'playing' && !showLore && !showSkills && !showStats && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone && !villainCutscene) {
         setShowWorldMap(prev => !prev);
       }
+      // Q key for All-Out Attack
+      if (e.key.toLowerCase() === 'q' && phase === 'playing' && !showLore && !showSkills && !showStats && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone && !villainCutscene && !showWorldMap) {
+        fireAllOutAttack();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
