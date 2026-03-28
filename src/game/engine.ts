@@ -97,7 +97,8 @@ export function startMalacharFight() {
   if (boss) {
     startBossIntroZoom(boss.pos.x, boss.pos.y, 'void');
   }
-  onBossEncounter?.('void');
+  // Use 'malachar' zone for dialogue, not 'void'
+  onBossEncounter?.('malachar' as any);
 }
 
 export function isMalacharActive(): boolean { return malacharActive; }
@@ -234,29 +235,111 @@ export function update(dt: number) {
   updateTransition(dt);
   updateBossZoom(dt);
   updateMotionBlur(dt);
+  updateAllOutCooldown(dt);
 
-  // Malachar element cycling
+  // Malachar element cycling — faster at lower HP
   if (malacharActive) {
     malacharElementTimer += dt;
-    if (malacharElementTimer > 4) {
+    const boss = room.enemies.find(e => (e as any).isMalachar);
+    const cycleTime = boss ? (boss.hp < boss.maxHp * 0.3 ? 2 : boss.hp < boss.maxHp * 0.6 ? 3 : 4) : 4;
+    if (malacharElementTimer > cycleTime) {
       malacharElementTimer = 0;
       const idx = MALACHAR_ELEMENTS.indexOf(malacharPhaseElement);
       malacharPhaseElement = MALACHAR_ELEMENTS[(idx + 1) % MALACHAR_ELEMENTS.length];
-      const boss = room.enemies.find(e => (e as any).isMalachar);
       if (boss && boss.hp > 0) {
         boss.element = malacharPhaseElement;
-        // Element shift burst
-        for (let i = 0; i < 12; i++) {
-          const angle = (i / 12) * Math.PI * 2;
+        // Element shift burst — more projectiles at lower HP
+        const burstCount = boss.hp < boss.maxHp * 0.3 ? 24 : boss.hp < boss.maxHp * 0.6 ? 16 : 12;
+        for (let i = 0; i < burstCount; i++) {
+          const angle = (i / burstCount) * Math.PI * 2;
           projectiles.push({
             id: `proj_${projIdCounter++}`,
             pos: { x: boss.pos.x + 12, y: boss.pos.y + 12 },
-            vel: { x: Math.cos(angle) * 160, y: Math.sin(angle) * 160 },
+            vel: { x: Math.cos(angle) * (160 + burstCount * 3), y: Math.sin(angle) * (160 + burstCount * 3) },
             damage: boss.damage * 0.5, element: malacharPhaseElement, fromPlayer: false, lifetime: 1.5, radius: 7,
           });
         }
-        screenShake = 6;
+        screenShake = 8;
+
+        // Malachar spawns multi-element horde every 2 cycles
+        if (idx % 2 === 0 && boss.hp < boss.maxHp * 0.8) {
+          const hordeCount = boss.hp < boss.maxHp * 0.3 ? 8 : 5;
+          const hordeElements = MALACHAR_ELEMENTS.slice(0, hordeCount);
+          for (let h = 0; h < hordeCount; h++) {
+            const spawnAngle = (h / hordeCount) * Math.PI * 2;
+            const dist = 120 + Math.random() * 60;
+            let mx = boss.pos.x + Math.cos(spawnAngle) * dist;
+            let my = boss.pos.y + Math.sin(spawnAngle) * dist;
+            let tx = Math.max(2, Math.min(Math.floor(mx / TILE_SIZE), room.width - 3));
+            let ty = Math.max(2, Math.min(Math.floor(my / TILE_SIZE), room.height - 3));
+            if (room.tiles[ty]?.[tx] !== 0) {
+              for (let r = 1; r <= 3; r++) {
+                let found = false;
+                for (let dy = -r; dy <= r && !found; dy++) {
+                  for (let dx = -r; dx <= r && !found; dx++) {
+                    const ny = ty + dy, nx = tx + dx;
+                    if (ny > 0 && ny < room.height - 1 && nx > 0 && nx < room.width - 1 && room.tiles[ny]?.[nx] === 0) {
+                      tx = nx; ty = ny; found = true;
+                    }
+                  }
+                }
+              }
+            }
+            const minion: Enemy = {
+              id: `enemy_horde_${projIdCounter++}`,
+              type: h % 3 === 0 ? 'ranged' : 'melee',
+              pos: { x: tx * TILE_SIZE, y: ty * TILE_SIZE },
+              hp: 60 + floor * 8,
+              maxHp: 60 + floor * 8,
+              speed: 2.2,
+              damage: 15 + floor * 3,
+              attackCooldown: 1,
+              attackTimer: 0,
+              element: hordeElements[h % hordeElements.length],
+              isBoss: false,
+              phase: 1,
+              state: 'chase',
+              stateTimer: 0,
+              statusEffects: [],
+              knockback: { x: 0, y: 0 },
+            };
+            room.enemies.push(minion);
+            for (let p = 0; p < 6; p++) {
+              particles.push({
+                x: tx * TILE_SIZE + 12, y: ty * TILE_SIZE + 12,
+                vx: (Math.random() - 0.5) * 100, vy: (Math.random() - 0.5) * 100,
+                life: 0.4, maxLife: 0.4,
+                color: ELEMENT_COLORS[hordeElements[h % hordeElements.length]], size: 3,
+              });
+            }
+          }
+          SFX.phaseTransition();
+        }
       }
+    }
+    
+    // Malachar ultimate attacks at phase transitions
+    if (boss && boss.hp > 0) {
+      const hpPct = boss.hp / boss.maxHp;
+      // Malachar fires additional homing projectiles constantly
+      if (boss.stateTimer <= 0 && boss.hp > 0) {
+        boss.stateTimer = Math.max(0.4, 1.5 - (1 - hpPct) * 1.0);
+        // Targeted salvo toward player
+        const toP = { x: player.pos.x - boss.pos.x, y: player.pos.y - boss.pos.y };
+        const dP = Math.sqrt(toP.x * toP.x + toP.y * toP.y) || 1;
+        const count = hpPct < 0.3 ? 5 : hpPct < 0.6 ? 3 : 2;
+        for (let i = 0; i < count; i++) {
+          const spread = (i - (count - 1) / 2) * 0.2;
+          const angle = Math.atan2(toP.y, toP.x) + spread;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: boss.pos.x + 12, y: boss.pos.y + 12 },
+            vel: { x: Math.cos(angle) * 220, y: Math.sin(angle) * 220 },
+            damage: boss.damage * 0.6, element: malacharPhaseElement, fromPlayer: false, lifetime: 2, radius: 7,
+          });
+        }
+      }
+      boss.stateTimer -= dt;
     }
   }
 
@@ -1115,10 +1198,10 @@ function onEnemyKill(enemy: Enemy) {
     };
     if (extraLore[enemy.element]) onLoreFound?.(extraLore[enemy.element]);
     
-    // Malachar defeat is handled specially
+    // Malachar defeat — use 'malachar' not 'void'
     if ((enemy as any).isMalachar) {
       malacharActive = false;
-      onBossDefeated?.('void');
+      onBossDefeated?.('malachar' as any);
       return;
     }
 
@@ -1342,9 +1425,19 @@ export function respawnPlayer() {
 export function switchElement(element: ElementType) {
   if (!player.unlockedElements.includes(element)) return;
   player.element = element;
-  floor = 1;
-  bossDialogueShown = false;
-  loadRoom(element, floor);
+  // Don't reset floor when switching mid-battle — only reset if not in Malachar fight
+  if (!malacharActive) {
+    floor = 1;
+    bossDialogueShown = false;
+    loadRoom(element, floor);
+  }
+  onStateChange?.();
+}
+
+// Switch element mid-combat without changing room
+export function switchElementBattle(element: ElementType) {
+  if (!player.unlockedElements.includes(element)) return;
+  player.element = element;
   onStateChange?.();
 }
 
@@ -1359,6 +1452,214 @@ export function getActiveSkills() {
   if (!player) return [];
   const allSkills = SKILLS[player.element] || [];
   return allSkills.filter(s => player.skills.includes(s.id));
+}
+
+// ─── All-Out Attack — Prodigy-style elemental ultimate ───
+let allOutCooldown = 0;
+export function getAllOutCooldown(): number { return allOutCooldown; }
+
+export function fireAllOutAttack() {
+  if (!player || allOutCooldown > 0 || player.mana < 50) return false;
+  allOutCooldown = 30; // 30 second cooldown
+  player.mana -= 50;
+  const px = player.pos.x + 12;
+  const py = player.pos.y + 12;
+  const baseDmg = (player.stats.attack + player.stats.elementalPower) * 3;
+  screenShake = 25;
+  SFX.skill();
+
+  switch (player.element) {
+    case 'fire': {
+      // INFERNAL JUDGEMENT — screen fills with meteor rain
+      for (let i = 0; i < 25; i++) {
+        setTimeout(() => {
+          const rx = (1 + Math.random() * (room.width - 2)) * TILE_SIZE;
+          const ry = 1 * TILE_SIZE;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`,
+            pos: { x: rx, y: ry },
+            vel: { x: (Math.random() - 0.5) * 40, y: 250 + Math.random() * 100 },
+            damage: baseDmg * 0.6, element: 'fire', fromPlayer: true, lifetime: 2.5, radius: 14,
+          });
+          for (let p = 0; p < 8; p++) {
+            particles.push({
+              x: rx, y: ry, vx: (Math.random()-0.5)*100, vy: 50+Math.random()*100,
+              life: 0.6, maxLife: 0.6, color: '#FF4500', size: 5+Math.random()*5,
+            });
+          }
+          screenShake = 8;
+        }, i * 80);
+      }
+      break;
+    }
+    case 'ice': {
+      // ABSOLUTE ZERO NOVA — everything freezes
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        enemy.hp -= baseDmg * 0.8;
+        enemy.statusEffects.push({ type: 'slow', duration: 8, damage: 0 });
+        addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.8), 'ice', true);
+        if (enemy.hp <= 0) onEnemyKill(enemy);
+      }
+      for (let i = 0; i < 60; i++) {
+        const a = (i / 60) * Math.PI * 2;
+        const r = 40 + Math.random() * 200;
+        particles.push({
+          x: px + Math.cos(a) * r, y: py + Math.sin(a) * r,
+          vx: -Math.cos(a) * 60, vy: -Math.sin(a) * 60,
+          life: 1.2, maxLife: 1.2, color: '#67E8F9', size: 4+Math.random()*4,
+        });
+      }
+      break;
+    }
+    case 'lightning': {
+      // THUNDER GODS WRATH — lightning bolts carpet the room
+      for (let i = 0; i < 30; i++) {
+        setTimeout(() => {
+          const sx = (1 + Math.random() * (room.width - 2)) * TILE_SIZE;
+          const sy = (1 + Math.random() * (room.height - 2)) * TILE_SIZE;
+          projectiles.push({
+            id: `proj_${projIdCounter++}`, pos: { x: sx, y: sy },
+            vel: { x: 0, y: 0 }, damage: baseDmg * 0.5,
+            element: 'lightning', fromPlayer: true, lifetime: 0.3, radius: 22,
+          });
+          for (let p = 0; p < 8; p++) {
+            particles.push({
+              x: sx, y: sy, vx: (Math.random()-0.5)*200, vy: -100-Math.random()*150,
+              life: 0.4, maxLife: 0.4, color: '#FACC15', size: 4+Math.random()*4,
+            });
+          }
+          screenShake = 6;
+        }, i * 60);
+      }
+      break;
+    }
+    case 'shadow': {
+      // VOID ANNIHILATION — teleport strike every enemy
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const dmg = baseDmg * 1.0;
+        enemy.hp -= dmg;
+        addDamageNumber(enemy.pos, Math.floor(dmg), 'shadow', true);
+        player.hp = Math.min(player.maxHp, player.hp + dmg * 0.3);
+        for (let p = 0; p < 8; p++) {
+          particles.push({
+            x: enemy.pos.x + 12, y: enemy.pos.y + 12,
+            vx: (Math.random()-0.5)*150, vy: (Math.random()-0.5)*150,
+            life: 0.5, maxLife: 0.5, color: '#A855F7', size: 4,
+          });
+        }
+        if (enemy.hp <= 0) onEnemyKill(enemy);
+      }
+      player.invincible = 2;
+      break;
+    }
+    case 'earth': {
+      // TECTONIC DEVASTATION — massive shockwaves
+      for (let ring = 0; ring < 5; ring++) {
+        setTimeout(() => {
+          for (const enemy of room.enemies) {
+            if (enemy.hp <= 0) continue;
+            const d = dist({ x: px, y: py }, { x: enemy.pos.x + 12, y: enemy.pos.y + 12 });
+            if (d < 250) {
+              const dmg = baseDmg * 0.5;
+              enemy.hp -= dmg;
+              addDamageNumber(enemy.pos, Math.floor(dmg), 'earth', ring === 4);
+              enemy.knockback.x += (enemy.pos.x - px) * 0.2;
+              enemy.knockback.y += (enemy.pos.y - py) * 0.2;
+              if (enemy.hp <= 0) onEnemyKill(enemy);
+            }
+          }
+          for (let i = 0; i < 20; i++) {
+            const a = (i / 20) * Math.PI * 2;
+            const r = 30 + ring * 50;
+            particles.push({
+              x: px + Math.cos(a) * r, y: py + Math.sin(a) * r,
+              vx: Math.cos(a) * 50, vy: -40 - Math.random() * 60,
+              life: 0.5, maxLife: 0.5, color: '#D97706', size: 5,
+            });
+          }
+          screenShake = 10;
+        }, ring * 150);
+      }
+      break;
+    }
+    case 'wind': {
+      // HURRICANE — spinning death tornado
+      for (let t = 0; t < 30; t++) {
+        setTimeout(() => {
+          const a = t * 0.6;
+          const r = 30 + t * 6;
+          for (const enemy of room.enemies) {
+            if (enemy.hp <= 0) continue;
+            const d = dist({ x: px, y: py }, enemy.pos);
+            if (d < r + 50) {
+              enemy.hp -= baseDmg * 0.15;
+              enemy.knockback.x += (px - enemy.pos.x) * 0.05;
+              enemy.knockback.y += (py - enemy.pos.y) * 0.05;
+              if (t % 5 === 0) addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.15), 'wind', false);
+              if (enemy.hp <= 0) onEnemyKill(enemy);
+            }
+          }
+          for (let i = 0; i < 6; i++) {
+            particles.push({
+              x: px + Math.cos(a + i) * r, y: py + Math.sin(a + i) * r,
+              vx: Math.cos(a + i + Math.PI/2) * 120, vy: Math.sin(a + i + Math.PI/2) * 120,
+              life: 0.5, maxLife: 0.5, color: '#34D399', size: 4,
+            });
+          }
+        }, t * 60);
+      }
+      break;
+    }
+    case 'nature': {
+      // WORLD TREE ERUPTION — massive heal + root everything
+      player.hp = player.maxHp;
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        enemy.hp -= baseDmg * 0.7;
+        enemy.statusEffects.push({ type: 'slow', duration: 6, damage: 0 });
+        enemy.statusEffects.push({ type: 'burn', duration: 6, damage: 8 });
+        addDamageNumber(enemy.pos, Math.floor(baseDmg * 0.7), 'nature', true);
+        if (enemy.hp <= 0) onEnemyKill(enemy);
+      }
+      for (let i = 0; i < 50; i++) {
+        particles.push({
+          x: px + (Math.random()-0.5)*400, y: py + 100,
+          vx: (Math.random()-0.5)*40, vy: -80 - Math.random() * 120,
+          life: 1, maxLife: 1, color: i % 2 === 0 ? '#22C55E' : '#4ADE80', size: 4+Math.random()*4,
+        });
+      }
+      break;
+    }
+    case 'void': {
+      // SINGULARITY COLLAPSE — black hole destroys everything
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const dmg = baseDmg * 1.5;
+        enemy.hp -= dmg;
+        addDamageNumber(enemy.pos, Math.floor(dmg), 'void', true);
+        if (enemy.hp <= 0) onEnemyKill(enemy);
+      }
+      for (let i = 0; i < 80; i++) {
+        const a = (i / 80) * Math.PI * 2;
+        const r = 20 + Math.random() * 250;
+        particles.push({
+          x: px + Math.cos(a) * r, y: py + Math.sin(a) * r,
+          vx: -Math.cos(a) * r * 1.5, vy: -Math.sin(a) * r * 1.5,
+          life: 1, maxLife: 1, color: i % 3 === 0 ? '#EC4899' : i % 3 === 1 ? '#A855F7' : '#000',
+          size: 3 + Math.random() * 6,
+        });
+      }
+      break;
+    }
+  }
+  return true;
+}
+
+// Update all-out cooldown
+function updateAllOutCooldown(dt: number) {
+  if (allOutCooldown > 0) allOutCooldown = Math.max(0, allOutCooldown - dt);
 }
 
 function fireSkill(skillId: string) {

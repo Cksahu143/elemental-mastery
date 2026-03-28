@@ -2,15 +2,7 @@ import { useState, useEffect } from 'react';
 import DialogueParticles from './DialogueParticles';
 import CutsceneBackground from './CutsceneBackground';
 import { ElementType } from '../game/types';
-import portraitAethon from '../assets/portrait-aethon.png';
-import portraitMalachar from '../assets/portrait-malachar.png';
-
-function getPortrait(speaker: string): string | null {
-  const s = speaker.toLowerCase();
-  if (s.includes('aethon') || s.includes('chronicler')) return portraitAethon;
-  if (s.includes('malachar') || s.includes('architect')) return portraitMalachar;
-  return null;
-}
+import { getPortrait } from '../game/portraits';
 
 interface NPCDialogueProps {
   lines: { speaker: string; text: string; color?: string }[];
@@ -39,6 +31,7 @@ export default function NPCDialogue({ lines, onComplete, zone = 'fire' }: NPCDia
 
   const line = lines[currentLine];
   if (!line) { onComplete(); return null; }
+  const portrait = getPortrait(line.speaker);
 
   return (
     <div
@@ -56,12 +49,12 @@ export default function NPCDialogue({ lines, onComplete, zone = 'fire' }: NPCDia
         }}
       >
         <div className="flex items-center gap-3 mb-2">
-          {getPortrait(line.speaker) && (
+          {portrait && (
             <img
-              src={getPortrait(line.speaker)!}
+              src={portrait}
               alt={line.speaker}
-              className="w-10 h-10 rounded-full border object-cover"
-              style={{ borderColor: line.color || 'hsl(var(--primary))' }}
+              className="w-12 h-12 rounded-full border-2 object-cover"
+              style={{ borderColor: line.color || 'hsl(var(--primary))', boxShadow: `0 0 12px ${line.color}40` }}
             />
           )}
           <p

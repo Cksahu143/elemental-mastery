@@ -1,9 +1,9 @@
 import { GameRoom, Enemy, ElementType, EnemyType, Position, TILE_SIZE } from './types';
 
-// Malachar boss arena generator
+// Malachar boss arena generator — enormous arena for the final fight
 export function generateMalacharArena(): GameRoom {
-  const width = 24;
-  const height = 20;
+  const width = 30;
+  const height = 26;
   const tiles: number[][] = [];
   
   for (let y = 0; y < height; y++) {
@@ -20,9 +20,9 @@ export function generateMalacharArena(): GameRoom {
   // Elemental hazard ring around arena
   const cx = Math.floor(width / 2);
   const cy = Math.floor(height / 2);
-  for (let a = 0; a < 16; a++) {
-    const angle = (a / 16) * Math.PI * 2;
-    const r = 7;
+  for (let a = 0; a < 24; a++) {
+    const angle = (a / 24) * Math.PI * 2;
+    const r = 9;
     const hx = cx + Math.round(Math.cos(angle) * r);
     const hy = cy + Math.round(Math.sin(angle) * r);
     if (hx > 0 && hx < width - 1 && hy > 0 && hy < height - 1) {
@@ -30,10 +30,18 @@ export function generateMalacharArena(): GameRoom {
     }
   }
   
+  // Pillar obstacles for cover
+  const pillars = [[5,5],[width-6,5],[5,height-6],[width-6,height-6],[cx-5,cy],[cx+5,cy]];
+  for (const [px,py] of pillars) {
+    if (px > 0 && px < width-1 && py > 0 && py < height-1) {
+      tiles[py][px] = 1;
+    }
+  }
+  
   // Corner hazard pools
-  for (const [ox, oy] of [[3,3],[width-4,3],[3,height-4],[width-4,height-4]]) {
-    for (let dy = 0; dy < 2; dy++) {
-      for (let dx = 0; dx < 2; dx++) {
+  for (const [ox, oy] of [[3,3],[width-5,3],[3,height-5],[width-5,height-5]]) {
+    for (let dy = 0; dy < 3; dy++) {
+      for (let dx = 0; dx < 3; dx++) {
         if (oy + dy > 0 && oy + dy < height - 1 && ox + dx > 0 && ox + dx < width - 1) {
           tiles[oy + dy][ox + dx] = 2;
         }
@@ -41,16 +49,16 @@ export function generateMalacharArena(): GameRoom {
     }
   }
   
-  // Malachar boss
+  // Malachar boss — MUCH harder: 15000 HP, high damage, fast
   const boss: Enemy = {
     id: 'malachar_boss',
     type: 'boss',
     pos: { x: cx * TILE_SIZE, y: 4 * TILE_SIZE },
-    hp: 5000,
-    maxHp: 5000,
-    speed: 1.8,
-    damage: 50,
-    attackCooldown: 0.6,
+    hp: 15000,
+    maxHp: 15000,
+    speed: 2.5,
+    damage: 80,
+    attackCooldown: 0.4,
     attackTimer: 0,
     element: 'void' as ElementType,
     isBoss: true,
@@ -104,9 +112,17 @@ function createEnemy(type: EnemyType, pos: Position, element: ElementType, isBos
   };
 }
 
+// Floor labeling helper
+export function getFloorLabel(floor: number): string {
+  const section = Math.ceil(floor / 5);
+  const sub = ((floor - 1) % 5) + 1;
+  const letter = String.fromCharCode(64 + sub); // A, B, C, D, E
+  return `${section}-${letter}`;
+}
+
 export function generateRoom(zone: ElementType, floor: number, isBossRoom: boolean): GameRoom {
-  const width = isBossRoom ? 20 : 14 + Math.floor(Math.random() * 6);
-  const height = isBossRoom ? 16 : 12 + Math.floor(Math.random() * 4);
+  const width = isBossRoom ? 22 : 14 + Math.floor(Math.random() * 6);
+  const height = isBossRoom ? 18 : 12 + Math.floor(Math.random() * 4);
   
   // Generate tiles: 0 = floor, 1 = wall, 2 = hazard
   const tiles: number[][] = [];

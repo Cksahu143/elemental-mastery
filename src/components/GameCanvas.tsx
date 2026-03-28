@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, SKILLS } from '../game/types';
-import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, unlockSkill, getActiveSkills, setKingdomRegen, getCameraMode, getGameTime, startMalacharFight, isMalacharActive } from '../game/engine';
+import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, switchElementBattle, unlockSkill, getActiveSkills, setKingdomRegen, getCameraMode, getGameTime, startMalacharFight, isMalacharActive, fireAllOutAttack, getAllOutCooldown } from '../game/engine';
 import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/saveSystem';
 import { POST_BOSS_DIALOGUES } from '../game/lore';
 import { SFX } from '../game/audio';
@@ -131,7 +131,7 @@ export default function GameCanvas() {
           }
         }
       },
-      onBossEncounter: (zone) => setBossZone(zone),
+      onBossEncounter: (zone) => setBossZone(zone as any),
       onLoreFound: (id) => {
         setLoreUnlocked(prev => {
           if (prev.includes(id)) return prev;
@@ -159,6 +159,13 @@ export default function GameCanvas() {
         });
       },
       onBossDefeated: (zone) => {
+        // If zone is 'malachar', handle Malachar-specific cutscene
+        if (zone === 'malachar' as any) {
+          setBossCutsceneZone('malachar' as any);
+          setBossesDefeated(prev => prev.includes('malachar') ? prev : [...prev, 'malachar']);
+          progressQuest('defeat_malachar', 'malachar');
+          return;
+        }
         setBossCutsceneZone(zone);
         setBossesDefeated(prev => prev.includes(zone) ? prev : [...prev, zone]);
         progressQuest('kill_boss', zone);
@@ -221,6 +228,10 @@ export default function GameCanvas() {
       if (e.key.toLowerCase() === 'm' && phase === 'playing' && !showLore && !showSkills && !showStats && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone && !villainCutscene) {
         setShowWorldMap(prev => !prev);
       }
+      // Q key for All-Out Attack
+      if (e.key.toLowerCase() === 'q' && phase === 'playing' && !showLore && !showSkills && !showStats && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone && !villainCutscene && !showWorldMap) {
+        fireAllOutAttack();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -238,11 +249,17 @@ export default function GameCanvas() {
   const handleBossCutsceneComplete = useCallback(() => {
     const zone = bossCutsceneZone!;
     setBossCutsceneZone(null);
+    // Malachar defeat — show his post-defeat dialogue
+    if (zone === 'malachar' as any) {
+      // Show Malachar post-defeat as villain cutscene
+      setVillainCutscene('malachar' as any);
+      return;
+    }
     // Show villain taunt
-    if (VILLAIN_TAUNTS[zone] && VILLAIN_TAUNTS[zone].length > 0) {
+    if (VILLAIN_TAUNTS[zone as ElementType] && VILLAIN_TAUNTS[zone as ElementType].length > 0) {
       setVillainCutscene(zone);
     } else {
-      proceedToKingdom(zone);
+      proceedToKingdom(zone as ElementType);
     }
   }, [bossCutsceneZone]);
 
@@ -261,6 +278,12 @@ export default function GameCanvas() {
     // After void boss villain cutscene, trigger Malachar fight
     if (zone === 'void') {
       startMalacharFight();
+      return;
+    }
+    // After Malachar defeat villain cutscene — game won, go to kingdom
+    if (zone === 'malachar' as any) {
+      setKingdomDefeatedZone('void');
+      setShowKingdom(true);
       return;
     }
     proceedToKingdom(zone);
