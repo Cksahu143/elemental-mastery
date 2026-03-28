@@ -159,6 +159,13 @@ export default function GameCanvas() {
         });
       },
       onBossDefeated: (zone) => {
+        // If zone is 'malachar', handle Malachar-specific cutscene
+        if (zone === 'malachar' as any) {
+          setBossCutsceneZone('malachar' as any);
+          setBossesDefeated(prev => prev.includes('malachar') ? prev : [...prev, 'malachar']);
+          progressQuest('defeat_malachar', 'malachar');
+          return;
+        }
         setBossCutsceneZone(zone);
         setBossesDefeated(prev => prev.includes(zone) ? prev : [...prev, zone]);
         progressQuest('kill_boss', zone);
