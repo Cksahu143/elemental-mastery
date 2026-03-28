@@ -97,7 +97,8 @@ export function startMalacharFight() {
   if (boss) {
     startBossIntroZoom(boss.pos.x, boss.pos.y, 'void');
   }
-  onBossEncounter?.('void');
+  // Use 'malachar' zone for dialogue, not 'void'
+  onBossEncounter?.('malachar' as any);
 }
 
 export function isMalacharActive(): boolean { return malacharActive; }
