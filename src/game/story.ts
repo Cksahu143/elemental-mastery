@@ -146,6 +146,13 @@ export const MALACHAR_POST_DEFEAT = [
   { speaker: GUIDE_NAME, text: 'The kingdom is yours now. Rebuild. Grow. The world is in your hands.', color: GUIDE_COLOR },
 ];
 
+// Malachar villain taunts (after his defeat)
+export const MALACHAR_DEFEAT_TAUNTS = [
+  { speaker: VILLAIN_NAME, text: 'The Architect... crumbles...', color: VILLAIN_COLOR },
+  { speaker: GUIDE_NAME, text: 'You did it, Bearer. Against all odds. The world is free.', color: GUIDE_COLOR },
+  { speaker: GUIDE_NAME, text: 'I knew you could. From the very beginning.', color: '#FFD700' },
+];
+
 // ═══════════════════════════════════════════
 // EXPANDED LORE — Additional entries
 // ═══════════════════════════════════════════
