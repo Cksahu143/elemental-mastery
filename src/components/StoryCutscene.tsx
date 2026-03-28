@@ -2,15 +2,7 @@ import { useState, useEffect } from 'react';
 import DialogueParticles from './DialogueParticles';
 import CutsceneBackground from './CutsceneBackground';
 import { ElementType } from '../game/types';
-import portraitAethon from '../assets/portrait-aethon.png';
-import portraitMalachar from '../assets/portrait-malachar.png';
-
-function getPortraitUrl(speaker: string): string | null {
-  const s = speaker.toLowerCase();
-  if (s.includes('aethon') || s.includes('chronicler')) return portraitAethon;
-  if (s.includes('malachar') || s.includes('architect')) return portraitMalachar;
-  return null;
-}
+import { getPortrait } from '../game/portraits';
 
 interface CutsceneLine {
   speaker: string;
@@ -60,6 +52,7 @@ export default function StoryCutscene({ lines, title, onComplete, zone = 'fire' 
   };
 
   const line = currentLine >= 0 ? lines[currentLine] : null;
+  const portrait = line ? getPortrait(line.speaker) : null;
 
   return (
     <div
@@ -80,9 +73,9 @@ export default function StoryCutscene({ lines, title, onComplete, zone = 'fire' 
 
       {line && (
         <div className="max-w-xl w-full mx-4 flex flex-col items-center z-50">
-          {getPortraitUrl(line.speaker) ? (
+          {portrait ? (
             <img
-              src={getPortraitUrl(line.speaker)!}
+              src={portrait}
               alt={line.speaker}
               className="w-20 h-20 rounded-full border-2 mb-4 object-cover transition-opacity duration-300"
               style={{
@@ -101,25 +94,7 @@ export default function StoryCutscene({ lines, title, onComplete, zone = 'fire' 
                 background: `radial-gradient(circle, ${line.color}20 0%, transparent 70%)`,
               }}
             >
-              {line.speaker.includes('Ignis') || line.speaker.includes('Ember') || line.speaker.includes('Kael')
-                ? '🔥'
-                : line.speaker.includes('Glacius') || line.speaker.includes('Frost')
-                ? '❄️'
-                : line.speaker.includes('Voltaris') || line.speaker.includes('Thunder')
-                ? '⚡'
-                : line.speaker.includes('Umbra') || line.speaker.includes('Void')
-                ? '🌑'
-                : line.speaker.includes('Terrath') || line.speaker.includes('Stone')
-                ? '🪨'
-                : line.speaker.includes('Zephyros') || line.speaker.includes('Tempest')
-                ? '🌀'
-                : line.speaker.includes('Sylvara') || line.speaker.includes('Thorn')
-                ? '🌿'
-                : line.speaker.includes('Nullex')
-                ? '🕳️'
-                : line.speaker.includes('Echo') || line.speaker.includes('Guardian')
-                ? '✦'
-                : '👁️'}
+              {line.speaker.includes('Echo') || line.speaker.includes('Guardian') ? '✦' : '👁️'}
             </div>
           )}
 
