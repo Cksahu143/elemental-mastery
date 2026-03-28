@@ -270,6 +270,12 @@ export default function GameCanvas() {
       startMalacharFight();
       return;
     }
+    // After Malachar defeat villain cutscene — game won, go to kingdom
+    if (zone === 'malachar' as any) {
+      setKingdomDefeatedZone('void');
+      setShowKingdom(true);
+      return;
+    }
     proceedToKingdom(zone);
   }, [villainCutscene, proceedToKingdom]);
 
