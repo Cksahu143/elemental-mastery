@@ -235,6 +235,7 @@ export function update(dt: number) {
   updateTransition(dt);
   updateBossZoom(dt);
   updateMotionBlur(dt);
+  updateAllOutCooldown(dt);
 
   // Malachar element cycling — faster at lower HP
   if (malacharActive) {
