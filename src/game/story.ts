@@ -417,6 +417,56 @@ export const QUESTS: Quest[] = [
     ],
     rewards: { xp: 300, gold: 300, loreId: 'world_zones' },
   },
+  // ─── New Side Quests ───
+  {
+    id: 'sq_slayer',
+    title: 'Elemental Slayer',
+    description: 'Defeat 3 zone bosses to prove your might.',
+    zone: 'any',
+    type: 'side',
+    objectives: [
+      { id: 'sq_slayer_1', text: 'Defeat the Fire Boss', type: 'kill_boss', target: 'fire', current: 0, required: 1 },
+      { id: 'sq_slayer_2', text: 'Defeat the Ice Boss', type: 'kill_boss', target: 'ice', current: 0, required: 1 },
+      { id: 'sq_slayer_3', text: 'Defeat the Lightning Boss', type: 'kill_boss', target: 'lightning', current: 0, required: 1 },
+    ],
+    rewards: { xp: 400, gold: 500, loreId: 'corruption_heart' },
+    prerequisite: 'mq_fire',
+  },
+  {
+    id: 'sq_deep_explorer',
+    title: 'Into the Deep',
+    description: 'Reach Floor 15 in any zone — only the bravest dare.',
+    zone: 'any',
+    type: 'side',
+    objectives: [
+      { id: 'sq_deep_1', text: 'Reach Floor 15', type: 'reach_floor', target: 15, current: 0, required: 15 },
+    ],
+    rewards: { xp: 500, gold: 400 },
+  },
+  {
+    id: 'sq_all_elements',
+    title: 'True Convergence',
+    description: 'Unlock all 8 elements — become the true Fragment Bearer.',
+    zone: 'any',
+    type: 'side',
+    objectives: [
+      { id: 'sq_all_1', text: 'Unlock all 8 elements', type: 'collect_element', target: 8, current: 0, required: 8 },
+    ],
+    rewards: { xp: 800, gold: 600, loreId: 'prophecy_truth' },
+    prerequisite: 'sq_collector',
+  },
+  {
+    id: 'sq_floor_master',
+    title: 'Floor Master',
+    description: 'Clear 30 dungeon floors total.',
+    zone: 'any',
+    type: 'side',
+    objectives: [
+      { id: 'sq_floor_master_1', text: 'Clear 30 total floors', type: 'clear_floors', target: 30, current: 0, required: 30 },
+    ],
+    rewards: { xp: 600, gold: 500 },
+    prerequisite: 'sq_explorer',
+  },
 ];
 
 // ═══════════════════════════════════════════
