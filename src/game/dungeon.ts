@@ -112,9 +112,17 @@ function createEnemy(type: EnemyType, pos: Position, element: ElementType, isBos
   };
 }
 
+// Floor labeling helper
+export function getFloorLabel(floor: number): string {
+  const section = Math.ceil(floor / 5);
+  const sub = ((floor - 1) % 5) + 1;
+  const letter = String.fromCharCode(64 + sub); // A, B, C, D, E
+  return `${section}-${letter}`;
+}
+
 export function generateRoom(zone: ElementType, floor: number, isBossRoom: boolean): GameRoom {
-  const width = isBossRoom ? 20 : 14 + Math.floor(Math.random() * 6);
-  const height = isBossRoom ? 16 : 12 + Math.floor(Math.random() * 4);
+  const width = isBossRoom ? 22 : 14 + Math.floor(Math.random() * 6);
+  const height = isBossRoom ? 18 : 12 + Math.floor(Math.random() * 4);
   
   // Generate tiles: 0 = floor, 1 = wall, 2 = hazard
   const tiles: number[][] = [];
