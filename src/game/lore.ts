@@ -256,8 +256,16 @@ export const POST_BOSS_DIALOGUES: Record<string, { speaker: string; text: string
   void: [
     { speaker: 'Nullex', text: 'I... cannot be... destroyed... I am... everything... and nothing...', color: '#EC4899' },
     { speaker: 'The Eight Echoes', text: 'You hold all eight elements, Bearer. The Convergence is complete.', color: '#FFD700' },
-    { speaker: 'The Eight Echoes', text: 'Balance is restored. For now. The world breathes again.', color: '#FFD700' },
-    { speaker: 'Mysterious Voice', text: 'You have done it. The Fragment Bearer\'s journey is complete... or is it just beginning?', color: '#A855F7' },
+    { speaker: 'The Eight Echoes', text: 'But the seal... it shatters. Malachar stirs.', color: '#FF0000' },
+  ],
+  malachar: [
+    { speaker: 'Malachar', text: 'Im...possible... I am... the Architect... I cannot...', color: '#991B1B' },
+    { speaker: 'Malachar', text: 'You... you hold all eight... and the fifth... my power...', color: '#991B1B' },
+    { speaker: 'Aethon', text: 'It is done, Bearer. Malachar falls. The corruption dies with him.', color: '#60A5FA' },
+    { speaker: 'Aethon', text: 'The Guardians are free at last. Their echoes can finally rest.', color: '#FFD700' },
+    { speaker: 'Echo of the Guardians', text: 'Thank you, Fragment Bearer. The world remembers.', color: '#FFD700' },
+    { speaker: 'Aethon', text: 'And so the story ends... or perhaps, it truly begins.', color: '#60A5FA' },
+    { speaker: 'Aethon', text: 'The kingdom is yours now. Rebuild. Grow. The world is in your hands.', color: '#60A5FA' },
   ],
 };
 
