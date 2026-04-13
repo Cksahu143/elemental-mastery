@@ -42,6 +42,32 @@ let screenShake = 0;
 let floor = 1;
 let gameTime = 0;
 let projIdCounter = 0;
+// Track current zone for progression (separate from player.element which is battle element)
+let currentProgressionZone: ElementType = 'fire';
+let gameCompleted = false;
+
+// ─── Elemental Combo System ───
+let lastElementSwitch: { element: ElementType; time: number } | null = null;
+const COMBO_WINDOW = 1.5; // seconds to trigger combo after switching
+
+const ELEMENT_COMBOS: Record<string, { name: string; color: string; damage: number; particles: string[]; count: number; speed: number; radius: number; homing: boolean }> = {
+  'fire+ice': { name: 'Steam Burst', color: '#B0C4DE', damage: 2.5, particles: ['#FF6B35', '#67E8F9', '#DDD'], count: 16, speed: 200, radius: 12, homing: false },
+  'fire+lightning': { name: 'Plasma Storm', color: '#FF6600', damage: 3.0, particles: ['#FF4500', '#FACC15'], count: 20, speed: 250, radius: 10, homing: false },
+  'fire+nature': { name: 'Wildfire', color: '#FF8C00', damage: 2.0, particles: ['#FF4500', '#22C55E'], count: 24, speed: 180, radius: 14, homing: false },
+  'ice+lightning': { name: 'Cryo-Shock', color: '#00FFFF', damage: 2.8, particles: ['#67E8F9', '#FACC15'], count: 18, speed: 220, radius: 11, homing: true },
+  'ice+wind': { name: 'Blizzard Gale', color: '#ADD8E6', damage: 2.2, particles: ['#67E8F9', '#6EE7B7'], count: 30, speed: 160, radius: 8, homing: false },
+  'lightning+shadow': { name: 'Dark Thunder', color: '#8B00FF', damage: 3.5, particles: ['#FACC15', '#A855F7'], count: 12, speed: 280, radius: 13, homing: true },
+  'shadow+void': { name: 'Oblivion', color: '#330033', damage: 4.0, particles: ['#A855F7', '#EC4899', '#000'], count: 10, speed: 300, radius: 16, homing: true },
+  'earth+nature': { name: 'Overgrowth Quake', color: '#556B2F', damage: 2.5, particles: ['#D97706', '#4ADE80'], count: 20, speed: 180, radius: 14, homing: false },
+  'earth+fire': { name: 'Magma Eruption', color: '#8B0000', damage: 3.2, particles: ['#D97706', '#FF4500'], count: 16, speed: 200, radius: 15, homing: false },
+  'wind+lightning': { name: 'Tempest Strike', color: '#7FFF00', damage: 2.8, particles: ['#6EE7B7', '#FACC15'], count: 22, speed: 240, radius: 10, homing: false },
+  'nature+ice': { name: 'Permafrost Bloom', color: '#98FB98', damage: 2.3, particles: ['#4ADE80', '#67E8F9'], count: 18, speed: 170, radius: 12, homing: false },
+  'void+fire': { name: 'Annihilation Flare', color: '#FF1493', damage: 3.8, particles: ['#EC4899', '#FF4500'], count: 14, speed: 260, radius: 14, homing: true },
+  'wind+shadow': { name: 'Phantom Gust', color: '#9370DB', damage: 2.6, particles: ['#6EE7B7', '#C084FC'], count: 20, speed: 200, radius: 10, homing: true },
+  'earth+shadow': { name: 'Grave Tremor', color: '#4B3621', damage: 2.7, particles: ['#D97706', '#A855F7'], count: 16, speed: 190, radius: 13, homing: false },
+  'void+ice': { name: 'Entropy Freeze', color: '#DA70D6', damage: 3.0, particles: ['#EC4899', '#67E8F9'], count: 14, speed: 230, radius: 12, homing: true },
+  'nature+shadow': { name: 'Blight', color: '#006400', damage: 2.8, particles: ['#4ADE80', '#A855F7'], count: 18, speed: 190, radius: 11, homing: false },
+};
 let dmgIdCounter = 0;
 let onStateChange: (() => void) | null = null;
 let onBossEncounter: ((zone: ElementType) => void) | null = null;
@@ -70,6 +96,9 @@ export function setCallbacks(cbs: {
 export function getPlayer(): PlayerState { return player; }
 export function getFloor(): number { return floor; }
 export function getRoom(): GameRoom { return room; }
+export function getProgressionZone(): ElementType { return currentProgressionZone; }
+export function isGameCompleted(): boolean { return gameCompleted; }
+export function getProjectiles(): Projectile[] { return projectiles; }
 
 // Track applied kingdom bonuses so we can strip them when saving
 let appliedKingdomBonuses: KingdomBonuses = { attackBonus: 0, hpBonus: 0, manaBonus: 0, xpMultiplier: 1, goldMultiplier: 1, hpRegen: 0, manaRegen: 0, defenseBonus: 0, elemPowerBonus: 0, speedBonus: 0, costReduction: 1 };
