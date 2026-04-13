@@ -207,11 +207,12 @@ function loadRoom(zone: ElementType, fl: number) {
 }
 
 export function nextRoom() {
-  // Fade out, then load new room
+  if (gameCompleted) return;
+  // Fade out, then load new room — always use progression zone, NOT player.element
   startTransition('fade', 'out', 0.3, '#000000', () => {
     floor++;
     bossDialogueShown = false;
-    loadRoom(player.element, floor);
+    loadRoom(currentProgressionZone, floor);
     onStateChange?.();
   });
 }
