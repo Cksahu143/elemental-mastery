@@ -266,8 +266,11 @@ export default function GameCanvas() {
   const proceedToKingdom = useCallback((zone: ElementType) => {
     const zoneIdx = ZONE_ORDER.indexOf(zone);
     const nextZoneIdx = (zoneIdx + 1) % ZONE_ORDER.length;
+    const nextZone = ZONE_ORDER[nextZoneIdx];
     setKingdomDefeatedZone(zone);
-    setCurrentZone(ZONE_ORDER[nextZoneIdx]);
+    setCurrentZone(nextZone);
+    // Advance the engine's progression zone to next zone
+    switchElement(nextZone);
     setShowKingdom(true);
     progressQuest('visit_kingdom', 'kingdom');
   }, [progressQuest]);

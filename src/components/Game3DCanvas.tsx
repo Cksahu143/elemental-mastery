@@ -1,8 +1,8 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ElementType, ELEMENT_COLORS, TILE_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT, GameRoom, PlayerState, Enemy } from '../game/types';
-import { getPlayer, getRoom, getFloor } from '../game/engine';
+import { ElementType, ELEMENT_COLORS, TILE_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT, GameRoom, PlayerState, Enemy, Projectile } from '../game/types';
+import { getPlayer, getRoom, getFloor, getProjectiles } from '../game/engine';
 
 // ─── Zone color configs ───
 const ZONE_FLOOR_COLORS: Record<ElementType, string> = {
@@ -36,9 +36,7 @@ function DungeonWalls({ room }: { room: GameRoom }) {
     const pos: [number, number][] = [];
     for (let y = 0; y < room.height; y++) {
       for (let x = 0; x < room.width; x++) {
-        if (room.tiles[y]?.[x] === 1) {
-          pos.push([x, y]);
-        }
+        if (room.tiles[y]?.[x] === 1) pos.push([x, y]);
       }
     }
     return pos;
@@ -57,7 +55,6 @@ function DungeonWalls({ room }: { room: GameRoom }) {
   }, [positions]);
 
   if (positions.length === 0) return null;
-
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, positions.length]}>
       <boxGeometry args={[1, 1.5, 1]} />
@@ -66,16 +63,154 @@ function DungeonWalls({ room }: { room: GameRoom }) {
   );
 }
 
+// ─── Player 3D — reads live state every frame ───
+function Player3D() {
+  const ref = useRef<THREE.Group>(null);
+  const auraRef = useRef<THREE.Mesh>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+
+  useFrame(({ clock }) => {
+    const player = getPlayer();
+    if (!ref.current || !player) return;
+    const t = clock.getElapsedTime();
+    const px = player.pos.x / TILE_SIZE + 0.5;
+    const pz = player.pos.y / TILE_SIZE + 0.5;
+    const bob = Math.sin(t * 4) * 0.05;
+    ref.current.position.set(px, 0.5 + bob, pz);
+    const angle = Math.atan2(player.facing.x, player.facing.y);
+    ref.current.rotation.y = angle;
+    
+    const color = new THREE.Color(ELEMENT_COLORS[player.element]);
+    if (auraRef.current) {
+      (auraRef.current.material as THREE.MeshStandardMaterial).color = color;
+      (auraRef.current.material as THREE.MeshStandardMaterial).emissive = color;
+      (auraRef.current.material as THREE.MeshStandardMaterial).opacity = 0.15 + Math.sin(t * 3) * 0.05;
+    }
+    if (lightRef.current) {
+      lightRef.current.color = color;
+    }
+  });
+
+  return (
+    <group ref={ref}>
+      <mesh>
+        <capsuleGeometry args={[0.2, 0.4, 4, 8]} />
+        <meshStandardMaterial color="#1a1a2e" />
+      </mesh>
+      <mesh ref={auraRef}>
+        <sphereGeometry args={[0.35, 8, 8]} />
+        <meshStandardMaterial transparent opacity={0.15} emissiveIntensity={0.5} />
+      </mesh>
+      <mesh position={[0, 0.4, 0]}>
+        <sphereGeometry args={[0.15, 8, 8]} />
+        <meshStandardMaterial color="#2a2a3e" />
+      </mesh>
+      <pointLight ref={lightRef} intensity={2} distance={4} />
+    </group>
+  );
+}
+
+// ─── Enemies 3D — reads live state every frame ───
+function EnemiesGroup() {
+  const groupRef = useRef<THREE.Group>(null);
+  const meshRefs = useRef<Map<string, THREE.Group>>(new Map());
+  const [, setTick] = useState(0);
+
+  useFrame(({ clock }) => {
+    const room = getRoom();
+    if (!room) return;
+    const t = clock.getElapsedTime();
+    
+    // Force React re-render periodically to add/remove enemy meshes
+    if (Math.floor(t * 4) % 2 === 0) setTick(n => n + 1);
+    
+    // Update positions of existing meshes
+    for (const enemy of room.enemies) {
+      const mesh = meshRefs.current.get(enemy.id);
+      if (!mesh || enemy.hp <= 0) continue;
+      const px = enemy.pos.x / TILE_SIZE + 0.5;
+      const pz = enemy.pos.y / TILE_SIZE + 0.5;
+      const size = enemy.isBoss ? 0.6 : enemy.type === 'tank' ? 0.4 : 0.25;
+      const numericId = parseFloat(enemy.id.replace(/\D/g, '') || '0');
+      const bob = Math.sin(t * 3 + numericId) * 0.03;
+      mesh.position.set(px, size + bob, pz);
+    }
+  });
+
+  const room = getRoom();
+  if (!room) return null;
+
+  const aliveEnemies = room.enemies.filter(e => e.hp > 0);
+
+  return (
+    <group ref={groupRef}>
+      {aliveEnemies.map(enemy => {
+        const color = ELEMENT_COLORS[enemy.element];
+        const size = enemy.isBoss ? 0.6 : enemy.type === 'tank' ? 0.4 : 0.25;
+        return (
+          <group key={enemy.id} ref={(ref) => { if (ref) meshRefs.current.set(enemy.id, ref); }}>
+            <mesh>
+              <boxGeometry args={[size * 2, size * 2, size * 2]} />
+              <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.3} />
+            </mesh>
+            {enemy.isBoss && <pointLight color={color} intensity={3} distance={6} />}
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+// ─── Projectiles 3D ───
+function Projectiles3D() {
+  const [, setTick] = useState(0);
+  
+  useFrame(() => setTick(n => n + 1));
+  
+  const projs = getProjectiles();
+  
+  return (
+    <>
+      {projs.map(proj => {
+        const px = proj.pos.x / TILE_SIZE + 0.5;
+        const pz = proj.pos.y / TILE_SIZE + 0.5;
+        const color = ELEMENT_COLORS[proj.element];
+        const size = proj.radius / TILE_SIZE;
+        return (
+          <mesh key={proj.id} position={[px, 0.5, pz]}>
+            <sphereGeometry args={[Math.max(0.08, size), 6, 6]} />
+            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1} transparent opacity={0.9} />
+          </mesh>
+        );
+      })}
+    </>
+  );
+}
+
+// ─── Camera Controller ───
+function CameraController() {
+  const { camera } = useThree();
+  
+  useFrame(() => {
+    const player = getPlayer();
+    if (!player) return;
+    const px = player.pos.x / TILE_SIZE + 0.5;
+    const pz = player.pos.y / TILE_SIZE + 0.5;
+    camera.position.set(px + 8, 12, pz + 8);
+    camera.lookAt(px, 0, pz);
+  });
+
+  return null;
+}
+
 // ─── Hazard tiles ───
-function HazardTiles({ room, gameTime }: { room: GameRoom; gameTime: number }) {
+function HazardTiles({ room }: { room: GameRoom }) {
   const hazardColor = ZONE_HAZARD_COLORS[room.zone];
   const positions = useMemo(() => {
     const pos: [number, number][] = [];
     for (let y = 0; y < room.height; y++) {
       for (let x = 0; x < room.width; x++) {
-        if (room.tiles[y]?.[x] === 2) {
-          pos.push([x, y]);
-        }
+        if (room.tiles[y]?.[x] === 2) pos.push([x, y]);
       }
     }
     return pos;
@@ -94,119 +229,32 @@ function HazardTiles({ room, gameTime }: { room: GameRoom; gameTime: number }) {
   }, [positions]);
 
   if (positions.length === 0) return null;
-
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, positions.length]}>
       <boxGeometry args={[0.9, 0.04, 0.9]} />
-      <meshStandardMaterial
-        color={hazardColor}
-        emissive={hazardColor}
-        emissiveIntensity={0.4 + Math.sin(gameTime * 3) * 0.2}
-        transparent
-        opacity={0.8}
-      />
+      <meshStandardMaterial color={hazardColor} emissive={hazardColor} emissiveIntensity={0.5} transparent opacity={0.8} />
     </instancedMesh>
   );
 }
 
-// ─── Player 3D ───
-function Player3D({ player, gameTime }: { player: PlayerState; gameTime: number }) {
-  const ref = useRef<THREE.Group>(null);
-  const color = ELEMENT_COLORS[player.element];
-  const bob = Math.sin(gameTime * 4) * 0.05;
-
-  useFrame(() => {
-    if (!ref.current) return;
-    const px = player.pos.x / TILE_SIZE + 0.5;
-    const pz = player.pos.y / TILE_SIZE + 0.5;
-    ref.current.position.set(px, 0.5 + bob, pz);
-    const angle = Math.atan2(player.facing.x, player.facing.y);
-    ref.current.rotation.y = angle;
-  });
-
-  return (
-    <group ref={ref}>
-      <mesh position={[0, 0, 0]}>
-        <capsuleGeometry args={[0.2, 0.4, 4, 8]} />
-        <meshStandardMaterial color="#1a1a2e" />
-      </mesh>
-      <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[0.35, 8, 8]} />
-        <meshStandardMaterial
-          color={color}
-          transparent
-          opacity={0.15 + Math.sin(gameTime * 3) * 0.05}
-          emissive={color}
-          emissiveIntensity={0.5}
-        />
-      </mesh>
-      <mesh position={[0, 0.4, 0]}>
-        <sphereGeometry args={[0.15, 8, 8]} />
-        <meshStandardMaterial color="#2a2a3e" />
-      </mesh>
-      <pointLight color={color} intensity={2} distance={4} />
-    </group>
-  );
-}
-
-// ─── Enemy 3D ───
-function Enemy3D({ enemy, gameTime }: { enemy: Enemy; gameTime: number }) {
-  const ref = useRef<THREE.Group>(null);
-  if (enemy.hp <= 0) return null;
-  
-  const color = ELEMENT_COLORS[enemy.element];
-  const size = enemy.isBoss ? 0.6 : enemy.type === 'tank' ? 0.4 : 0.25;
-  const numericId = parseFloat(enemy.id.replace(/\D/g, '') || '0');
-  const bob = Math.sin(gameTime * 3 + numericId) * 0.03;
-
-  const px = enemy.pos.x / TILE_SIZE + 0.5;
-  const pz = enemy.pos.y / TILE_SIZE + 0.5;
-
-  return (
-    <group ref={ref} position={[px, size + bob, pz]}>
-      <mesh>
-        <boxGeometry args={[size * 2, size * 2, size * 2]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.2} />
-      </mesh>
-      {enemy.isBoss && (
-        <pointLight color={color} intensity={3} distance={6} />
-      )}
-    </group>
-  );
-}
-
-// ─── Camera Controller ───
-function CameraController({ player }: { player: PlayerState }) {
-  const { camera } = useThree();
-  
-  useFrame(() => {
-    const px = player.pos.x / TILE_SIZE + 0.5;
-    const pz = player.pos.y / TILE_SIZE + 0.5;
-    camera.position.set(px + 8, 12, pz + 8);
-    camera.lookAt(px, 0, pz);
-  });
-
-  return null;
-}
-
-function Scene3D({ gameTime, player, room }: { gameTime: number; player: PlayerState; room: GameRoom }) {
+function Scene3D() {
+  const room = getRoom();
+  const player = getPlayer();
   if (!player || !room) return null;
 
   return (
     <>
-      <CameraController player={player} />
-      <ambientLight intensity={0.15} />
-      <directionalLight position={[5, 10, 5]} intensity={0.3} />
-      <fog attach="fog" args={['#0a0a14', 8, 25]} />
+      <CameraController />
+      <ambientLight intensity={0.2} />
+      <directionalLight position={[5, 10, 5]} intensity={0.4} />
+      <fog attach="fog" args={['#0a0a14', 8, 30]} />
       
       <DungeonFloor room={room} />
       <DungeonWalls room={room} />
-      <HazardTiles room={room} gameTime={gameTime} />
-      <Player3D player={player} gameTime={gameTime} />
-      
-      {room.enemies.map(enemy => (
-        <Enemy3D key={enemy.id} enemy={enemy} gameTime={gameTime} />
-      ))}
+      <HazardTiles room={room} />
+      <Player3D />
+      <EnemiesGroup />
+      <Projectiles3D />
     </>
   );
 }
@@ -230,7 +278,7 @@ export default function Game3DCanvas({ gameTime }: Game3DCanvasProps) {
           gl.setClearColor('#0a0a14');
         }}
       >
-        <Scene3D gameTime={gameTime} player={player} room={room} />
+        <Scene3D />
       </Canvas>
     </div>
   );
