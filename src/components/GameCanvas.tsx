@@ -120,14 +120,15 @@ export default function GameCanvas() {
     setCallbacks({
       onStateChange: () => {
         forceUpdate(n => n + 1);
-        const p = getPlayer();
-        if (p && p.element !== currentZone) {
+        // Only trigger zone dialogues when the progression zone changes (not mid-battle element switching)
+        const progZone = getProgressionZone();
+        if (progZone !== currentZone) {
           const prevZone = currentZone;
-          setCurrentZone(p.element);
-          const dialogues = GUIDE_ZONE_DIALOGUES[p.element];
-          if (dialogues && dialogues.length > 0 && prevZone !== p.element) {
-            setZoneEntryDialogue(p.element);
-            progressQuest('collect_element', p.element);
+          setCurrentZone(progZone);
+          const dialogues = GUIDE_ZONE_DIALOGUES[progZone];
+          if (dialogues && dialogues.length > 0 && prevZone !== progZone) {
+            setZoneEntryDialogue(progZone);
+            progressQuest('collect_element', progZone);
           }
         }
       },
