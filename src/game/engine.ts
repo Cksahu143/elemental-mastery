@@ -1234,6 +1234,8 @@ function onEnemyKill(enemy: Enemy) {
     // Malachar defeat — use 'malachar' not 'void'
     if ((enemy as any).isMalachar) {
       malacharActive = false;
+      gameCompleted = true;
+      stopBossMusic();
       onBossDefeated?.('malachar' as any);
       return;
     }
