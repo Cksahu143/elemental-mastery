@@ -233,7 +233,7 @@ export function getSaveData(): SaveData {
     skills: [...player.skills],
     loreUnlocked: [],
     bossesDefeated: [],
-    currentZone: player.element,
+    currentZone: currentProgressionZone,
     currentFloor: floor,
     hp: Math.min(player.hp, player.maxHp - kb.hpBonus),
     maxHp: player.maxHp - kb.hpBonus,
