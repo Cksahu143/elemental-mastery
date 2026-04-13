@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, SKILLS } from '../game/types';
-import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, switchElementBattle, unlockSkill, getActiveSkills, setKingdomRegen, getCameraMode, getGameTime, startMalacharFight, isMalacharActive, fireAllOutAttack, getAllOutCooldown } from '../game/engine';
+import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, switchElementBattle, unlockSkill, getActiveSkills, setKingdomRegen, getCameraMode, getGameTime, startMalacharFight, isMalacharActive, fireAllOutAttack, getAllOutCooldown, isGameCompleted, getProgressionZone } from '../game/engine';
 import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/saveSystem';
 import { POST_BOSS_DIALOGUES } from '../game/lore';
 import { SFX } from '../game/audio';
@@ -120,14 +120,15 @@ export default function GameCanvas() {
     setCallbacks({
       onStateChange: () => {
         forceUpdate(n => n + 1);
-        const p = getPlayer();
-        if (p && p.element !== currentZone) {
+        // Only trigger zone dialogues when the progression zone changes (not mid-battle element switching)
+        const progZone = getProgressionZone();
+        if (progZone !== currentZone) {
           const prevZone = currentZone;
-          setCurrentZone(p.element);
-          const dialogues = GUIDE_ZONE_DIALOGUES[p.element];
-          if (dialogues && dialogues.length > 0 && prevZone !== p.element) {
-            setZoneEntryDialogue(p.element);
-            progressQuest('collect_element', p.element);
+          setCurrentZone(progZone);
+          const dialogues = GUIDE_ZONE_DIALOGUES[progZone];
+          if (dialogues && dialogues.length > 0 && prevZone !== progZone) {
+            setZoneEntryDialogue(progZone);
+            progressQuest('collect_element', progZone);
           }
         }
       },
@@ -266,8 +267,11 @@ export default function GameCanvas() {
   const proceedToKingdom = useCallback((zone: ElementType) => {
     const zoneIdx = ZONE_ORDER.indexOf(zone);
     const nextZoneIdx = (zoneIdx + 1) % ZONE_ORDER.length;
+    const nextZone = ZONE_ORDER[nextZoneIdx];
     setKingdomDefeatedZone(zone);
-    setCurrentZone(ZONE_ORDER[nextZoneIdx]);
+    setCurrentZone(nextZone);
+    // Advance the engine's progression zone to next zone
+    switchElement(nextZone);
     setShowKingdom(true);
     progressQuest('visit_kingdom', 'kingdom');
   }, [progressQuest]);
@@ -291,8 +295,14 @@ export default function GameCanvas() {
 
   const handleKingdomContinue = useCallback(() => {
     setShowKingdom(false);
+    // If game is completed (Malachar defeated), go back to title
+    if (isGameCompleted()) {
+      showNotif('Congratulations! You saved the world!');
+      setTimeout(() => setPhase('title'), 3000);
+      return;
+    }
     nextRoom();
-  }, []);
+  }, [showNotif]);
 
   const handleMapSelectZone = useCallback((zone: ElementType) => {
     switchElement(zone);
