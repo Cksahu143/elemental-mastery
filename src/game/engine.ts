@@ -511,6 +511,29 @@ export function update(dt: number) {
   // Update projectiles
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const p = projectiles[i];
+    
+    // Homing projectile logic
+    if ((p as any).homing && p.fromPlayer) {
+      let closest: Enemy | null = null;
+      let closestDist = Infinity;
+      for (const enemy of room.enemies) {
+        if (enemy.hp <= 0) continue;
+        const d = dist(p.pos, enemy.pos);
+        if (d < closestDist && d < 300) {
+          closestDist = d;
+          closest = enemy;
+        }
+      }
+      if (closest) {
+        const toE = { x: closest.pos.x + 12 - p.pos.x, y: closest.pos.y + 12 - p.pos.y };
+        const dE = Math.sqrt(toE.x * toE.x + toE.y * toE.y) || 1;
+        const speed = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
+        const turnRate = 4 * dt;
+        p.vel.x += (toE.x / dE * speed - p.vel.x) * turnRate;
+        p.vel.y += (toE.y / dE * speed - p.vel.y) * turnRate;
+      }
+    }
+    
     p.pos.x += p.vel.x * dt;
     p.pos.y += p.vel.y * dt;
     p.lifetime -= dt;
