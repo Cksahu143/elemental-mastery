@@ -1458,8 +1458,9 @@ export function respawnPlayer() {
 export function switchElement(element: ElementType) {
   if (!player.unlockedElements.includes(element)) return;
   player.element = element;
-  // Don't reset floor when switching mid-battle — only reset if not in Malachar fight
+  // Switch progression zone — this changes what zone floors you're in
   if (!malacharActive) {
+    currentProgressionZone = element;
     floor = 1;
     bossDialogueShown = false;
     loadRoom(element, floor);
@@ -1467,11 +1468,66 @@ export function switchElement(element: ElementType) {
   onStateChange?.();
 }
 
-// Switch element mid-combat without changing room
+// Switch element mid-combat without changing room or zone progression
 export function switchElementBattle(element: ElementType) {
   if (!player.unlockedElements.includes(element)) return;
+  const prevElement = player.element;
   player.element = element;
+  
+  // Check for elemental combo
+  if (lastElementSwitch && (gameTime - lastElementSwitch.time) < COMBO_WINDOW && lastElementSwitch.element !== element) {
+    triggerElementalCombo(lastElementSwitch.element, element);
+  }
+  lastElementSwitch = { element: prevElement, time: gameTime };
+  
   onStateChange?.();
+}
+
+function triggerElementalCombo(fromEl: ElementType, toEl: ElementType) {
+  const key1 = `${fromEl}+${toEl}`;
+  const key2 = `${toEl}+${fromEl}`;
+  const combo = ELEMENT_COMBOS[key1] || ELEMENT_COMBOS[key2];
+  if (!combo || !player || !room) return;
+  
+  const px = player.pos.x + 12;
+  const py = player.pos.y + 12;
+  const baseDmg = (player.stats.attack + player.stats.elementalPower) * combo.damage;
+  
+  screenShake = 15;
+  SFX.skill();
+  
+  // Spawn combo projectiles
+  for (let i = 0; i < combo.count; i++) {
+    const angle = (i / combo.count) * Math.PI * 2;
+    const proj: Projectile = {
+      id: `proj_${projIdCounter++}`,
+      pos: { x: px, y: py },
+      vel: { x: Math.cos(angle) * combo.speed, y: Math.sin(angle) * combo.speed },
+      damage: baseDmg / combo.count,
+      element: toEl,
+      fromPlayer: true,
+      lifetime: combo.homing ? 3 : 1.5,
+      radius: combo.radius,
+    };
+    // Add homing behavior via a flag
+    if (combo.homing) {
+      (proj as any).homing = true;
+    }
+    projectiles.push(proj);
+  }
+  
+  // Combo particles burst
+  for (let i = 0; i < 30; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.random() * 80;
+    particles.push({
+      x: px + Math.cos(a) * r, y: py + Math.sin(a) * r,
+      vx: Math.cos(a) * 120, vy: Math.sin(a) * 120,
+      life: 0.8, maxLife: 0.8,
+      color: combo.particles[Math.floor(Math.random() * combo.particles.length)],
+      size: 3 + Math.random() * 5,
+    });
+  }
 }
 
 export function unlockSkill(skillId: string) {
