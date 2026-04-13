@@ -159,8 +159,11 @@ export function initGame(save: SaveData, kingdomBonuses?: KingdomBonuses) {
     invincible: 0,
   };
   floor = save.currentFloor;
+  currentProgressionZone = save.currentZone;
+  gameCompleted = false;
   bossDialogueShown = false;
   malacharActive = false;
+  lastElementSwitch = null;
   loadRoom(save.currentZone, floor);
   startAmbientMusic(save.currentZone);
 }
