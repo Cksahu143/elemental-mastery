@@ -291,8 +291,14 @@ export default function GameCanvas() {
 
   const handleKingdomContinue = useCallback(() => {
     setShowKingdom(false);
+    // If game is completed (Malachar defeated), go back to title
+    if (gameCompleted) {
+      showNotif('Congratulations! You saved the world!');
+      setTimeout(() => setPhase('title'), 3000);
+      return;
+    }
     nextRoom();
-  }, []);
+  }, [showNotif]);
 
   const handleMapSelectZone = useCallback((zone: ElementType) => {
     switchElement(zone);

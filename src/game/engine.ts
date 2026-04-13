@@ -1477,7 +1477,7 @@ export function respawnPlayer() {
   player.mana = player.maxMana;
   floor = Math.max(1, floor - 1);
   bossDialogueShown = false;
-  loadRoom(player.element, floor);
+  loadRoom(currentProgressionZone, floor);
 }
 
 export function switchElement(element: ElementType) {
