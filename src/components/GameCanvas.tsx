@@ -117,6 +117,11 @@ export default function GameCanvas() {
     setShowNPCDialogue(true);
   }, []);
 
+  // Set up Malachar QTE callback
+  useEffect(() => {
+    setMalacharQTECallback(() => setShowMalacharQTE(true));
+  }, []);
+
   // Set up callbacks
   useEffect(() => {
     setCallbacks({
