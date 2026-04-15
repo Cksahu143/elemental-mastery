@@ -1317,6 +1317,34 @@ function onEnemyKill(enemy: Enemy) {
     startAmbientMusic(player.element);
   } else {
     SFX.enemyDeath();
+    // Supercharged enemy explosion — damages Malachar and nearby enemies
+    if ((enemy as any).explodeOnDeath) {
+      const explodeDmg = 40 + floor * 5;
+      const explodeRadius = 80;
+      screenShake = 8;
+      for (const other of room.enemies) {
+        if (other.hp <= 0 || other.id === enemy.id) continue;
+        const d = dist(enemy.pos, other.pos);
+        if (d < explodeRadius) {
+          other.hp -= explodeDmg;
+          addDamageNumber(other.pos, explodeDmg, enemy.element, true);
+          if (other.hp <= 0) {
+            // Defer kill to avoid mutation during iteration
+            setTimeout(() => onEnemyKill(other), 0);
+          }
+        }
+      }
+      // Explosion particles
+      for (let i = 0; i < 20; i++) {
+        const a = (i / 20) * Math.PI * 2;
+        particles.push({
+          x: enemy.pos.x + 12, y: enemy.pos.y + 12,
+          vx: Math.cos(a) * 180, vy: Math.sin(a) * 180,
+          life: 0.6, maxLife: 0.6,
+          color: ELEMENT_COLORS[enemy.element], size: 5 + Math.random() * 4,
+        });
+      }
+    }
   }
   
   // Death particles
