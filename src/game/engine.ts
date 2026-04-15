@@ -1731,9 +1731,17 @@ function triggerElementalCombo(fromEl: ElementType, toEl: ElementType) {
   const combo = ELEMENT_COMBOS[key1] || ELEMENT_COMBOS[key2];
   if (!combo || !player || !room) return;
   
+  // Increment combo counter
+  comboCounter++;
+  comboTimer = COMBO_DECAY;
+  const comboMultiplier = 1 + comboCounter * 0.15; // 15% more damage per combo
+  
+  // Set display
+  activeComboDisplay = { name: combo.name, color: combo.color, timer: 2 };
+  
   const px = player.pos.x + 12;
   const py = player.pos.y + 12;
-  const baseDmg = (player.stats.attack + player.stats.elementalPower) * combo.damage;
+  const baseDmg = (player.stats.attack + player.stats.elementalPower) * combo.damage * comboMultiplier;
   
   screenShake = 15;
   SFX.skill();
