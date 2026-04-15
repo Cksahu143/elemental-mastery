@@ -371,7 +371,50 @@ export default function GameCanvas() {
             </p>
           </div>
         )}
+        {/* Combo Display */}
+        {(() => {
+          const combo = getComboState();
+          return (
+            <>
+              {combo.display && (
+                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 z-40 pointer-events-none text-center">
+                  <p
+                    className="text-3xl font-display font-bold tracking-widest animate-pulse"
+                    style={{ color: combo.display.color, textShadow: `0 0 30px ${combo.display.color}, 0 0 60px ${combo.display.color}50` }}
+                  >
+                    {combo.display.name}!
+                  </p>
+                  {combo.counter > 1 && (
+                    <p className="text-lg font-ui font-bold mt-1" style={{ color: combo.display.color }}>
+                      {combo.counter}x COMBO — {Math.floor(combo.counter * 15)}% BONUS
+                    </p>
+                  )}
+                </div>
+              )}
+              {combo.counter > 0 && !combo.display && (
+                <div className="absolute top-4 right-4 z-30 pointer-events-none">
+                  <div className="bg-card/80 border border-border rounded px-3 py-1 text-center">
+                    <p className="text-xs font-ui text-muted-foreground">COMBO</p>
+                    <p className="text-xl font-display font-bold text-accent">{combo.counter}x</p>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
+
+      {/* Malachar QTE */}
+      {showMalacharQTE && (
+        <MalacharQTE
+          onComplete={(blocked) => {
+            setShowMalacharQTE(false);
+            resolveMalacharQTE(blocked);
+            if (blocked) showNotif('BLOCKED! Malachar is stunned!');
+            else showNotif('Failed to block!');
+          }}
+        />
+      )}
 
       {showLore && <LoreCodex entries={loreEntries} onClose={() => setShowLore(false)} />}
       {showSkills && player && <SkillTree player={player} onClose={() => setShowSkills(false)} />}
