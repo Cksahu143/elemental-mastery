@@ -1290,9 +1290,78 @@ function onEnemyKill(enemy: Enemy) {
     };
     if (extraLore[enemy.element]) onLoreFound?.(extraLore[enemy.element]);
     
-    // Malachar defeat — use 'malachar' not 'void'
+    // Malachar defeat — Phase 2 transition or final defeat
     if ((enemy as any).isMalachar) {
+      if (!malacharPhase2) {
+        // Transition to Phase 2 — Desperate Form
+        malacharPhase2 = true;
+        enemy.hp = 1000;
+        enemy.maxHp = 1000;
+        enemy.damage = Math.floor(enemy.damage * 2.5);
+        enemy.speed *= 2;
+        enemy.attackCooldown *= 0.3;
+        enemy.phase = 1; // reset phases for phase 2
+        screenShake = 30;
+        SFX.phaseTransition();
+        // Spawn supercharged exploding minions
+        for (let i = 0; i < 12; i++) {
+          const angle = (i / 12) * Math.PI * 2;
+          const sdist = 100 + Math.random() * 80;
+          let mx = enemy.pos.x + Math.cos(angle) * sdist;
+          let my = enemy.pos.y + Math.sin(angle) * sdist;
+          let tx = Math.max(2, Math.min(Math.floor(mx / TILE_SIZE), room.width - 3));
+          let ty = Math.max(2, Math.min(Math.floor(my / TILE_SIZE), room.height - 3));
+          if (room.tiles[ty]?.[tx] !== 0) {
+            for (let r = 1; r <= 3; r++) {
+              let found = false;
+              for (let dy = -r; dy <= r && !found; dy++) {
+                for (let dx = -r; dx <= r && !found; dx++) {
+                  const ny = ty + dy, nx = tx + dx;
+                  if (ny > 0 && ny < room.height - 1 && nx > 0 && nx < room.width - 1 && room.tiles[ny]?.[nx] === 0) {
+                    tx = nx; ty = ny; found = true;
+                  }
+                }
+              }
+            }
+          }
+          const el = MALACHAR_ELEMENTS[i % 8];
+          const minion: Enemy = {
+            id: `enemy_sc_${projIdCounter++}`,
+            type: 'melee',
+            pos: { x: tx * TILE_SIZE, y: ty * TILE_SIZE },
+            hp: 30 + floor * 3,
+            maxHp: 30 + floor * 3,
+            speed: 3.5,
+            damage: 25 + floor * 5,
+            attackCooldown: 0.4,
+            attackTimer: 0,
+            element: el,
+            isBoss: false,
+            phase: 1,
+            state: 'chase',
+            stateTimer: 0,
+            statusEffects: [],
+            knockback: { x: 0, y: 0 },
+          };
+          (minion as any).supercharged = true;
+          (minion as any).explodeOnDeath = true;
+          room.enemies.push(minion);
+        }
+        // Visual explosion
+        for (let i = 0; i < 50; i++) {
+          particles.push({
+            x: enemy.pos.x + 12, y: enemy.pos.y + 12,
+            vx: (Math.random() - 0.5) * 400, vy: (Math.random() - 0.5) * 400,
+            life: 1.2, maxLife: 1.2,
+            color: MALACHAR_ELEMENTS[i % 8] ? ELEMENT_COLORS[MALACHAR_ELEMENTS[i % 8]] : '#FF0000',
+            size: 4 + Math.random() * 6,
+          });
+        }
+        return; // Don't count as killed
+      }
+      // Phase 2 actual defeat
       malacharActive = false;
+      malacharPhase2 = false;
       gameCompleted = true;
       stopBossMusic();
       onBossDefeated?.('malachar' as any);
