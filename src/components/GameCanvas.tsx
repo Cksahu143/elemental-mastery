@@ -25,6 +25,7 @@ import KingdomHub from './KingdomHub';
 import IntroCutscene from './IntroCutscene';
 import Game3DCanvas from './Game3DCanvas';
 import WorldMap from './WorldMap';
+import MalacharQTE from './MalacharQTE';
 
 type GamePhase = 'title' | 'intro' | 'playing' | 'paused';
 
