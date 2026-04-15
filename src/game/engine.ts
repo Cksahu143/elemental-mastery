@@ -49,6 +49,14 @@ let gameCompleted = false;
 // ─── Elemental Combo System ───
 let lastElementSwitch: { element: ElementType; time: number } | null = null;
 const COMBO_WINDOW = 1.5; // seconds to trigger combo after switching
+let comboCounter = 0;
+let comboTimer = 0;
+const COMBO_DECAY = 3; // seconds before combo resets
+let activeComboDisplay: { name: string; color: string; timer: number } | null = null;
+
+export function getComboState(): { counter: number; timer: number; display: { name: string; color: string; timer: number } | null } {
+  return { counter: comboCounter, timer: comboTimer, display: activeComboDisplay };
+}
 
 const ELEMENT_COMBOS: Record<string, { name: string; color: string; damage: number; particles: string[]; count: number; speed: number; radius: number; homing: boolean }> = {
   'fire+ice': { name: 'Steam Burst', color: '#B0C4DE', damage: 2.5, particles: ['#FF6B35', '#67E8F9', '#DDD'], count: 16, speed: 200, radius: 12, homing: false },
@@ -68,6 +76,34 @@ const ELEMENT_COMBOS: Record<string, { name: string; color: string; damage: numb
   'void+ice': { name: 'Entropy Freeze', color: '#DA70D6', damage: 3.0, particles: ['#EC4899', '#67E8F9'], count: 14, speed: 230, radius: 12, homing: true },
   'nature+shadow': { name: 'Blight', color: '#006400', damage: 2.8, particles: ['#4ADE80', '#A855F7'], count: 18, speed: 190, radius: 11, homing: false },
 };
+
+// ─── Malachar Phase 2 (Desperate Form) ───
+let malacharPhase2 = false;
+let malacharTeleportTimer = 0;
+let malacharQTEActive = false;
+let malacharQTECallback: ((blocked: boolean) => void) | null = null;
+let onMalacharQTE: (() => void) | null = null;
+
+export function setMalacharQTECallback(cb: () => void) { onMalacharQTE = cb; }
+export function isMalacharQTEActive(): boolean { return malacharQTEActive; }
+export function resolveMalacharQTE(blocked: boolean) {
+  malacharQTEActive = false;
+  if (!blocked && player) {
+    // Failed to block — massive damage
+    player.hp -= player.maxHp * 0.4;
+    screenShake = 25;
+    if (player.hp <= 0) player.hp = 0;
+  } else {
+    // Blocked — stun Malachar briefly
+    const boss = room?.enemies.find(e => (e as any).isMalachar);
+    if (boss) {
+      boss.isTired = true;
+      boss.tiredTimer = 3;
+      screenShake = 10;
+    }
+  }
+}
+export function isMalacharPhase2(): boolean { return malacharPhase2; }
 let dmgIdCounter = 0;
 let onStateChange: (() => void) | null = null;
 let onBossEncounter: ((zone: ElementType) => void) | null = null;
