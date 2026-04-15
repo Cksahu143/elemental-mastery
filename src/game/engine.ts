@@ -298,6 +298,7 @@ export function allocateStat(stat: keyof PlayerState['stats']) {
 // ─── Update ───
 export function update(dt: number) {
   if (!player || !room) return;
+  if (malacharQTEActive) return; // Freeze game during QTE
   gameTime += dt;
 
   // Update screen effects
@@ -305,6 +306,20 @@ export function update(dt: number) {
   updateBossZoom(dt);
   updateMotionBlur(dt);
   updateAllOutCooldown(dt);
+
+  // Combo counter decay
+  if (comboCounter > 0) {
+    comboTimer -= dt;
+    if (comboTimer <= 0) {
+      comboCounter = 0;
+      comboTimer = 0;
+    }
+  }
+  // Combo display decay
+  if (activeComboDisplay) {
+    activeComboDisplay.timer -= dt;
+    if (activeComboDisplay.timer <= 0) activeComboDisplay = null;
+  }
 
   // Malachar element cycling — faster at lower HP
   if (malacharActive) {
