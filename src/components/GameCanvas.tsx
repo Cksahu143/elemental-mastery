@@ -220,7 +220,7 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene, showMalacharQTE]);
 
   // Key bindings
   useEffect(() => {
