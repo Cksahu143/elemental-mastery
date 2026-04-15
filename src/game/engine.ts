@@ -402,28 +402,97 @@ export function update(dt: number) {
       }
     }
     
-    // Malachar ultimate attacks at phase transitions
-    if (boss && boss.hp > 0) {
-      const hpPct = boss.hp / boss.maxHp;
-      // Malachar fires additional homing projectiles constantly
-      if (boss.stateTimer <= 0 && boss.hp > 0) {
-        boss.stateTimer = Math.max(0.4, 1.5 - (1 - hpPct) * 1.0);
-        // Targeted salvo toward player
+    // Malachar Phase 2 — teleport behind player + QTE
+    if (malacharPhase2 && boss && boss.hp > 0) {
+      malacharTeleportTimer += dt;
+      const teleInterval = boss.hp < boss.maxHp * 0.5 ? 4 : 6;
+      if (malacharTeleportTimer > teleInterval && !malacharQTEActive) {
+        malacharTeleportTimer = 0;
+        // Teleport behind player
+        const behindX = player.pos.x - player.facing.x * 60;
+        const behindY = player.pos.y - player.facing.y * 60;
+        boss.pos.x = behindX;
+        boss.pos.y = behindY;
+        screenShake = 15;
+        // Trigger QTE
+        malacharQTEActive = true;
+        onMalacharQTE?.();
+        return; // Freeze updates
+      }
+      
+      // Phase 2 homing projectiles — much more aggressive
+      if (boss.stateTimer <= 0) {
+        boss.stateTimer = 0.3;
         const toP = { x: player.pos.x - boss.pos.x, y: player.pos.y - boss.pos.y };
         const dP = Math.sqrt(toP.x * toP.x + toP.y * toP.y) || 1;
-        const count = hpPct < 0.3 ? 5 : hpPct < 0.6 ? 3 : 2;
-        for (let i = 0; i < count; i++) {
-          const spread = (i - (count - 1) / 2) * 0.2;
+        for (let i = 0; i < 4; i++) {
+          const spread = (i - 1.5) * 0.3;
           const angle = Math.atan2(toP.y, toP.x) + spread;
-          projectiles.push({
+          const proj: Projectile = {
             id: `proj_${projIdCounter++}`,
             pos: { x: boss.pos.x + 12, y: boss.pos.y + 12 },
-            vel: { x: Math.cos(angle) * 220, y: Math.sin(angle) * 220 },
-            damage: boss.damage * 0.6, element: malacharPhaseElement, fromPlayer: false, lifetime: 2, radius: 7,
-          });
+            vel: { x: Math.cos(angle) * 260, y: Math.sin(angle) * 260 },
+            damage: boss.damage * 0.8, element: malacharPhaseElement, fromPlayer: false, lifetime: 2.5, radius: 8,
+          };
+          (proj as any).homing = false; // These are fast aimed shots
+          projectiles.push(proj);
         }
       }
       boss.stateTimer -= dt;
+      
+      // Spawn supercharged minions periodically in Phase 2
+      if (Math.random() < dt * 0.15) {
+        const el = MALACHAR_ELEMENTS[Math.floor(Math.random() * 8)];
+        const angle = Math.random() * Math.PI * 2;
+        const sdist = 80 + Math.random() * 100;
+        let mx = boss.pos.x + Math.cos(angle) * sdist;
+        let my = boss.pos.y + Math.sin(angle) * sdist;
+        let tx = Math.max(2, Math.min(Math.floor(mx / TILE_SIZE), room.width - 3));
+        let ty = Math.max(2, Math.min(Math.floor(my / TILE_SIZE), room.height - 3));
+        const minion: Enemy = {
+          id: `enemy_sc_${projIdCounter++}`,
+          type: 'melee',
+          pos: { x: tx * TILE_SIZE, y: ty * TILE_SIZE },
+          hp: 20 + floor * 2,
+          maxHp: 20 + floor * 2,
+          speed: 4,
+          damage: 20 + floor * 4,
+          attackCooldown: 0.3,
+          attackTimer: 0,
+          element: el,
+          isBoss: false,
+          phase: 1,
+          state: 'chase',
+          stateTimer: 0,
+          statusEffects: [],
+          knockback: { x: 0, y: 0 },
+        };
+        (minion as any).supercharged = true;
+        (minion as any).explodeOnDeath = true;
+        room.enemies.push(minion);
+      }
+    } else {
+      // Normal Malachar Phase 1 attacks
+      if (boss && boss.hp > 0) {
+        const hpPct = boss.hp / boss.maxHp;
+        if (boss.stateTimer <= 0 && boss.hp > 0) {
+          boss.stateTimer = Math.max(0.4, 1.5 - (1 - hpPct) * 1.0);
+          const toP = { x: player.pos.x - boss.pos.x, y: player.pos.y - boss.pos.y };
+          const dP = Math.sqrt(toP.x * toP.x + toP.y * toP.y) || 1;
+          const count = hpPct < 0.3 ? 5 : hpPct < 0.6 ? 3 : 2;
+          for (let i = 0; i < count; i++) {
+            const spread = (i - (count - 1) / 2) * 0.2;
+            const angle = Math.atan2(toP.y, toP.x) + spread;
+            projectiles.push({
+              id: `proj_${projIdCounter++}`,
+              pos: { x: boss.pos.x + 12, y: boss.pos.y + 12 },
+              vel: { x: Math.cos(angle) * 220, y: Math.sin(angle) * 220 },
+              damage: boss.damage * 0.6, element: malacharPhaseElement, fromPlayer: false, lifetime: 2, radius: 7,
+            });
+          }
+        }
+        boss.stateTimer -= dt;
+      }
     }
   }
 
