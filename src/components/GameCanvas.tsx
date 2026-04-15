@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, SKILLS } from '../game/types';
-import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, switchElementBattle, unlockSkill, getActiveSkills, setKingdomRegen, getCameraMode, getGameTime, startMalacharFight, isMalacharActive, fireAllOutAttack, getAllOutCooldown, isGameCompleted, getProgressionZone } from '../game/engine';
+import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, switchElementBattle, unlockSkill, getActiveSkills, setKingdomRegen, getCameraMode, getGameTime, startMalacharFight, isMalacharActive, fireAllOutAttack, getAllOutCooldown, isGameCompleted, getProgressionZone, getComboState, setMalacharQTECallback, resolveMalacharQTE, isMalacharPhase2 } from '../game/engine';
 import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/saveSystem';
 import { POST_BOSS_DIALOGUES } from '../game/lore';
 import { SFX } from '../game/audio';
@@ -25,6 +25,7 @@ import KingdomHub from './KingdomHub';
 import IntroCutscene from './IntroCutscene';
 import Game3DCanvas from './Game3DCanvas';
 import WorldMap from './WorldMap';
+import MalacharQTE from './MalacharQTE';
 
 type GamePhase = 'title' | 'intro' | 'playing' | 'paused';
 
@@ -57,6 +58,7 @@ export default function GameCanvas() {
   const [villainCutscene, setVillainCutscene] = useState<ElementType | null>(null);
   const [bossesDefeated, setBossesDefeated] = useState<string[]>([]);
   const [totalFloorsCleared, setTotalFloorsCleared] = useState(0);
+  const [showMalacharQTE, setShowMalacharQTE] = useState(false);
 
   const hasSave = loadGame() !== null;
 
@@ -113,6 +115,11 @@ export default function GameCanvas() {
   const handleIntroComplete = useCallback(() => {
     setPhase('playing');
     setShowNPCDialogue(true);
+  }, []);
+
+  // Set up Malachar QTE callback
+  useEffect(() => {
+    setMalacharQTECallback(() => setShowMalacharQTE(true));
   }, []);
 
   // Set up callbacks
@@ -194,7 +201,7 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene;
+      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene || showMalacharQTE;
       if (!isPaused) {
         update(dt);
       }
@@ -213,7 +220,7 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene, showMalacharQTE]);
 
   // Key bindings
   useEffect(() => {
@@ -364,7 +371,50 @@ export default function GameCanvas() {
             </p>
           </div>
         )}
+        {/* Combo Display */}
+        {(() => {
+          const combo = getComboState();
+          return (
+            <>
+              {combo.display && (
+                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 z-40 pointer-events-none text-center">
+                  <p
+                    className="text-3xl font-display font-bold tracking-widest animate-pulse"
+                    style={{ color: combo.display.color, textShadow: `0 0 30px ${combo.display.color}, 0 0 60px ${combo.display.color}50` }}
+                  >
+                    {combo.display.name}!
+                  </p>
+                  {combo.counter > 1 && (
+                    <p className="text-lg font-ui font-bold mt-1" style={{ color: combo.display.color }}>
+                      {combo.counter}x COMBO — {Math.floor(combo.counter * 15)}% BONUS
+                    </p>
+                  )}
+                </div>
+              )}
+              {combo.counter > 0 && !combo.display && (
+                <div className="absolute top-4 right-4 z-30 pointer-events-none">
+                  <div className="bg-card/80 border border-border rounded px-3 py-1 text-center">
+                    <p className="text-xs font-ui text-muted-foreground">COMBO</p>
+                    <p className="text-xl font-display font-bold text-accent">{combo.counter}x</p>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
+
+      {/* Malachar QTE */}
+      {showMalacharQTE && (
+        <MalacharQTE
+          onComplete={(blocked) => {
+            setShowMalacharQTE(false);
+            resolveMalacharQTE(blocked);
+            if (blocked) showNotif('BLOCKED! Malachar is stunned!');
+            else showNotif('Failed to block!');
+          }}
+        />
+      )}
 
       {showLore && <LoreCodex entries={loreEntries} onClose={() => setShowLore(false)} />}
       {showSkills && player && <SkillTree player={player} onClose={() => setShowSkills(false)} />}

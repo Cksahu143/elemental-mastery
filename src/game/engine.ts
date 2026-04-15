@@ -49,6 +49,14 @@ let gameCompleted = false;
 // ─── Elemental Combo System ───
 let lastElementSwitch: { element: ElementType; time: number } | null = null;
 const COMBO_WINDOW = 1.5; // seconds to trigger combo after switching
+let comboCounter = 0;
+let comboTimer = 0;
+const COMBO_DECAY = 3; // seconds before combo resets
+let activeComboDisplay: { name: string; color: string; timer: number } | null = null;
+
+export function getComboState(): { counter: number; timer: number; display: { name: string; color: string; timer: number } | null } {
+  return { counter: comboCounter, timer: comboTimer, display: activeComboDisplay };
+}
 
 const ELEMENT_COMBOS: Record<string, { name: string; color: string; damage: number; particles: string[]; count: number; speed: number; radius: number; homing: boolean }> = {
   'fire+ice': { name: 'Steam Burst', color: '#B0C4DE', damage: 2.5, particles: ['#FF6B35', '#67E8F9', '#DDD'], count: 16, speed: 200, radius: 12, homing: false },
@@ -68,6 +76,34 @@ const ELEMENT_COMBOS: Record<string, { name: string; color: string; damage: numb
   'void+ice': { name: 'Entropy Freeze', color: '#DA70D6', damage: 3.0, particles: ['#EC4899', '#67E8F9'], count: 14, speed: 230, radius: 12, homing: true },
   'nature+shadow': { name: 'Blight', color: '#006400', damage: 2.8, particles: ['#4ADE80', '#A855F7'], count: 18, speed: 190, radius: 11, homing: false },
 };
+
+// ─── Malachar Phase 2 (Desperate Form) ───
+let malacharPhase2 = false;
+let malacharTeleportTimer = 0;
+let malacharQTEActive = false;
+let malacharQTECallback: ((blocked: boolean) => void) | null = null;
+let onMalacharQTE: (() => void) | null = null;
+
+export function setMalacharQTECallback(cb: () => void) { onMalacharQTE = cb; }
+export function isMalacharQTEActive(): boolean { return malacharQTEActive; }
+export function resolveMalacharQTE(blocked: boolean) {
+  malacharQTEActive = false;
+  if (!blocked && player) {
+    // Failed to block — massive damage
+    player.hp -= player.maxHp * 0.4;
+    screenShake = 25;
+    if (player.hp <= 0) player.hp = 0;
+  } else {
+    // Blocked — stun Malachar briefly
+    const boss = room?.enemies.find(e => (e as any).isMalachar);
+    if (boss) {
+      boss.isTired = true;
+      boss.tiredTimer = 3;
+      screenShake = 10;
+    }
+  }
+}
+export function isMalacharPhase2(): boolean { return malacharPhase2; }
 let dmgIdCounter = 0;
 let onStateChange: (() => void) | null = null;
 let onBossEncounter: ((zone: ElementType) => void) | null = null;
@@ -262,6 +298,7 @@ export function allocateStat(stat: keyof PlayerState['stats']) {
 // ─── Update ───
 export function update(dt: number) {
   if (!player || !room) return;
+  if (malacharQTEActive) return; // Freeze game during QTE
   gameTime += dt;
 
   // Update screen effects
@@ -269,6 +306,20 @@ export function update(dt: number) {
   updateBossZoom(dt);
   updateMotionBlur(dt);
   updateAllOutCooldown(dt);
+
+  // Combo counter decay
+  if (comboCounter > 0) {
+    comboTimer -= dt;
+    if (comboTimer <= 0) {
+      comboCounter = 0;
+      comboTimer = 0;
+    }
+  }
+  // Combo display decay
+  if (activeComboDisplay) {
+    activeComboDisplay.timer -= dt;
+    if (activeComboDisplay.timer <= 0) activeComboDisplay = null;
+  }
 
   // Malachar element cycling — faster at lower HP
   if (malacharActive) {
@@ -351,28 +402,97 @@ export function update(dt: number) {
       }
     }
     
-    // Malachar ultimate attacks at phase transitions
-    if (boss && boss.hp > 0) {
-      const hpPct = boss.hp / boss.maxHp;
-      // Malachar fires additional homing projectiles constantly
-      if (boss.stateTimer <= 0 && boss.hp > 0) {
-        boss.stateTimer = Math.max(0.4, 1.5 - (1 - hpPct) * 1.0);
-        // Targeted salvo toward player
+    // Malachar Phase 2 — teleport behind player + QTE
+    if (malacharPhase2 && boss && boss.hp > 0) {
+      malacharTeleportTimer += dt;
+      const teleInterval = boss.hp < boss.maxHp * 0.5 ? 4 : 6;
+      if (malacharTeleportTimer > teleInterval && !malacharQTEActive) {
+        malacharTeleportTimer = 0;
+        // Teleport behind player
+        const behindX = player.pos.x - player.facing.x * 60;
+        const behindY = player.pos.y - player.facing.y * 60;
+        boss.pos.x = behindX;
+        boss.pos.y = behindY;
+        screenShake = 15;
+        // Trigger QTE
+        malacharQTEActive = true;
+        onMalacharQTE?.();
+        return; // Freeze updates
+      }
+      
+      // Phase 2 homing projectiles — much more aggressive
+      if (boss.stateTimer <= 0) {
+        boss.stateTimer = 0.3;
         const toP = { x: player.pos.x - boss.pos.x, y: player.pos.y - boss.pos.y };
         const dP = Math.sqrt(toP.x * toP.x + toP.y * toP.y) || 1;
-        const count = hpPct < 0.3 ? 5 : hpPct < 0.6 ? 3 : 2;
-        for (let i = 0; i < count; i++) {
-          const spread = (i - (count - 1) / 2) * 0.2;
+        for (let i = 0; i < 4; i++) {
+          const spread = (i - 1.5) * 0.3;
           const angle = Math.atan2(toP.y, toP.x) + spread;
-          projectiles.push({
+          const proj: Projectile = {
             id: `proj_${projIdCounter++}`,
             pos: { x: boss.pos.x + 12, y: boss.pos.y + 12 },
-            vel: { x: Math.cos(angle) * 220, y: Math.sin(angle) * 220 },
-            damage: boss.damage * 0.6, element: malacharPhaseElement, fromPlayer: false, lifetime: 2, radius: 7,
-          });
+            vel: { x: Math.cos(angle) * 260, y: Math.sin(angle) * 260 },
+            damage: boss.damage * 0.8, element: malacharPhaseElement, fromPlayer: false, lifetime: 2.5, radius: 8,
+          };
+          (proj as any).homing = false; // These are fast aimed shots
+          projectiles.push(proj);
         }
       }
       boss.stateTimer -= dt;
+      
+      // Spawn supercharged minions periodically in Phase 2
+      if (Math.random() < dt * 0.15) {
+        const el = MALACHAR_ELEMENTS[Math.floor(Math.random() * 8)];
+        const angle = Math.random() * Math.PI * 2;
+        const sdist = 80 + Math.random() * 100;
+        let mx = boss.pos.x + Math.cos(angle) * sdist;
+        let my = boss.pos.y + Math.sin(angle) * sdist;
+        let tx = Math.max(2, Math.min(Math.floor(mx / TILE_SIZE), room.width - 3));
+        let ty = Math.max(2, Math.min(Math.floor(my / TILE_SIZE), room.height - 3));
+        const minion: Enemy = {
+          id: `enemy_sc_${projIdCounter++}`,
+          type: 'melee',
+          pos: { x: tx * TILE_SIZE, y: ty * TILE_SIZE },
+          hp: 20 + floor * 2,
+          maxHp: 20 + floor * 2,
+          speed: 4,
+          damage: 20 + floor * 4,
+          attackCooldown: 0.3,
+          attackTimer: 0,
+          element: el,
+          isBoss: false,
+          phase: 1,
+          state: 'chase',
+          stateTimer: 0,
+          statusEffects: [],
+          knockback: { x: 0, y: 0 },
+        };
+        (minion as any).supercharged = true;
+        (minion as any).explodeOnDeath = true;
+        room.enemies.push(minion);
+      }
+    } else {
+      // Normal Malachar Phase 1 attacks
+      if (boss && boss.hp > 0) {
+        const hpPct = boss.hp / boss.maxHp;
+        if (boss.stateTimer <= 0 && boss.hp > 0) {
+          boss.stateTimer = Math.max(0.4, 1.5 - (1 - hpPct) * 1.0);
+          const toP = { x: player.pos.x - boss.pos.x, y: player.pos.y - boss.pos.y };
+          const dP = Math.sqrt(toP.x * toP.x + toP.y * toP.y) || 1;
+          const count = hpPct < 0.3 ? 5 : hpPct < 0.6 ? 3 : 2;
+          for (let i = 0; i < count; i++) {
+            const spread = (i - (count - 1) / 2) * 0.2;
+            const angle = Math.atan2(toP.y, toP.x) + spread;
+            projectiles.push({
+              id: `proj_${projIdCounter++}`,
+              pos: { x: boss.pos.x + 12, y: boss.pos.y + 12 },
+              vel: { x: Math.cos(angle) * 220, y: Math.sin(angle) * 220 },
+              damage: boss.damage * 0.6, element: malacharPhaseElement, fromPlayer: false, lifetime: 2, radius: 7,
+            });
+          }
+        }
+        boss.stateTimer -= dt;
+      }
     }
   }
 
@@ -1197,6 +1317,34 @@ function onEnemyKill(enemy: Enemy) {
     startAmbientMusic(player.element);
   } else {
     SFX.enemyDeath();
+    // Supercharged enemy explosion — damages Malachar and nearby enemies
+    if ((enemy as any).explodeOnDeath) {
+      const explodeDmg = 40 + floor * 5;
+      const explodeRadius = 80;
+      screenShake = 8;
+      for (const other of room.enemies) {
+        if (other.hp <= 0 || other.id === enemy.id) continue;
+        const d = dist(enemy.pos, other.pos);
+        if (d < explodeRadius) {
+          other.hp -= explodeDmg;
+          addDamageNumber(other.pos, explodeDmg, enemy.element, true);
+          if (other.hp <= 0) {
+            // Defer kill to avoid mutation during iteration
+            setTimeout(() => onEnemyKill(other), 0);
+          }
+        }
+      }
+      // Explosion particles
+      for (let i = 0; i < 20; i++) {
+        const a = (i / 20) * Math.PI * 2;
+        particles.push({
+          x: enemy.pos.x + 12, y: enemy.pos.y + 12,
+          vx: Math.cos(a) * 180, vy: Math.sin(a) * 180,
+          life: 0.6, maxLife: 0.6,
+          color: ELEMENT_COLORS[enemy.element], size: 5 + Math.random() * 4,
+        });
+      }
+    }
   }
   
   // Death particles
@@ -1254,9 +1402,78 @@ function onEnemyKill(enemy: Enemy) {
     };
     if (extraLore[enemy.element]) onLoreFound?.(extraLore[enemy.element]);
     
-    // Malachar defeat — use 'malachar' not 'void'
+    // Malachar defeat — Phase 2 transition or final defeat
     if ((enemy as any).isMalachar) {
+      if (!malacharPhase2) {
+        // Transition to Phase 2 — Desperate Form
+        malacharPhase2 = true;
+        enemy.hp = 1000;
+        enemy.maxHp = 1000;
+        enemy.damage = Math.floor(enemy.damage * 2.5);
+        enemy.speed *= 2;
+        enemy.attackCooldown *= 0.3;
+        enemy.phase = 1; // reset phases for phase 2
+        screenShake = 30;
+        SFX.phaseTransition();
+        // Spawn supercharged exploding minions
+        for (let i = 0; i < 12; i++) {
+          const angle = (i / 12) * Math.PI * 2;
+          const sdist = 100 + Math.random() * 80;
+          let mx = enemy.pos.x + Math.cos(angle) * sdist;
+          let my = enemy.pos.y + Math.sin(angle) * sdist;
+          let tx = Math.max(2, Math.min(Math.floor(mx / TILE_SIZE), room.width - 3));
+          let ty = Math.max(2, Math.min(Math.floor(my / TILE_SIZE), room.height - 3));
+          if (room.tiles[ty]?.[tx] !== 0) {
+            for (let r = 1; r <= 3; r++) {
+              let found = false;
+              for (let dy = -r; dy <= r && !found; dy++) {
+                for (let dx = -r; dx <= r && !found; dx++) {
+                  const ny = ty + dy, nx = tx + dx;
+                  if (ny > 0 && ny < room.height - 1 && nx > 0 && nx < room.width - 1 && room.tiles[ny]?.[nx] === 0) {
+                    tx = nx; ty = ny; found = true;
+                  }
+                }
+              }
+            }
+          }
+          const el = MALACHAR_ELEMENTS[i % 8];
+          const minion: Enemy = {
+            id: `enemy_sc_${projIdCounter++}`,
+            type: 'melee',
+            pos: { x: tx * TILE_SIZE, y: ty * TILE_SIZE },
+            hp: 30 + floor * 3,
+            maxHp: 30 + floor * 3,
+            speed: 3.5,
+            damage: 25 + floor * 5,
+            attackCooldown: 0.4,
+            attackTimer: 0,
+            element: el,
+            isBoss: false,
+            phase: 1,
+            state: 'chase',
+            stateTimer: 0,
+            statusEffects: [],
+            knockback: { x: 0, y: 0 },
+          };
+          (minion as any).supercharged = true;
+          (minion as any).explodeOnDeath = true;
+          room.enemies.push(minion);
+        }
+        // Visual explosion
+        for (let i = 0; i < 50; i++) {
+          particles.push({
+            x: enemy.pos.x + 12, y: enemy.pos.y + 12,
+            vx: (Math.random() - 0.5) * 400, vy: (Math.random() - 0.5) * 400,
+            life: 1.2, maxLife: 1.2,
+            color: MALACHAR_ELEMENTS[i % 8] ? ELEMENT_COLORS[MALACHAR_ELEMENTS[i % 8]] : '#FF0000',
+            size: 4 + Math.random() * 6,
+          });
+        }
+        return; // Don't count as killed
+      }
+      // Phase 2 actual defeat
       malacharActive = false;
+      malacharPhase2 = false;
       gameCompleted = true;
       stopBossMusic();
       onBossDefeated?.('malachar' as any);
@@ -1514,9 +1731,17 @@ function triggerElementalCombo(fromEl: ElementType, toEl: ElementType) {
   const combo = ELEMENT_COMBOS[key1] || ELEMENT_COMBOS[key2];
   if (!combo || !player || !room) return;
   
+  // Increment combo counter
+  comboCounter++;
+  comboTimer = COMBO_DECAY;
+  const comboMultiplier = 1 + comboCounter * 0.15; // 15% more damage per combo
+  
+  // Set display
+  activeComboDisplay = { name: combo.name, color: combo.color, timer: 2 };
+  
   const px = player.pos.x + 12;
   const py = player.pos.y + 12;
-  const baseDmg = (player.stats.attack + player.stats.elementalPower) * combo.damage;
+  const baseDmg = (player.stats.attack + player.stats.elementalPower) * combo.damage * comboMultiplier;
   
   screenShake = 15;
   SFX.skill();
