@@ -58,6 +58,7 @@ export default function GameCanvas() {
   const [villainCutscene, setVillainCutscene] = useState<ElementType | null>(null);
   const [bossesDefeated, setBossesDefeated] = useState<string[]>([]);
   const [totalFloorsCleared, setTotalFloorsCleared] = useState(0);
+  const [showMalacharQTE, setShowMalacharQTE] = useState(false);
 
   const hasSave = loadGame() !== null;
 
