@@ -298,7 +298,7 @@ export default function GameCanvas() {
       return;
     }
     // After Malachar defeat villain cutscene — game won, go to kingdom
-    if (zone === 'malachar' as any) {
+    if (zone === 'malachar') {
       setKingdomDefeatedZone('void');
       setShowKingdom(true);
       return;
@@ -457,9 +457,9 @@ export default function GameCanvas() {
       {/* Boss post-fight cutscene */}
       {bossCutsceneZone && (
         <StoryCutscene
-          title={`${BOSS_NAME_MAP[bossCutsceneZone]} Defeated`}
+          title={`${bossCutsceneZone === 'malachar' ? 'Malachar' : BOSS_NAME_MAP[bossCutsceneZone]} Defeated`}
           lines={POST_BOSS_DIALOGUES[bossCutsceneZone] || []}
-          zone={bossCutsceneZone}
+          zone={bossCutsceneZone === 'malachar' ? 'void' : bossCutsceneZone}
           onComplete={handleBossCutsceneComplete}
         />
       )}
@@ -468,8 +468,8 @@ export default function GameCanvas() {
       {villainCutscene && (
         <StoryCutscene
           title="A Dark Presence..."
-          lines={VILLAIN_TAUNTS[villainCutscene]}
-          zone={villainCutscene}
+          lines={villainCutscene === 'malachar' ? MALACHAR_DEFEAT_TAUNTS : VILLAIN_TAUNTS[villainCutscene]}
+          zone={villainCutscene === 'malachar' ? 'void' : villainCutscene}
           onComplete={handleVillainCutsceneComplete}
         />
       )}
