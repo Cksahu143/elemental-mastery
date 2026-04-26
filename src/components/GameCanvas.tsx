@@ -7,6 +7,7 @@ import { SFX } from '../game/audio';
 import { loadKingdom, saveKingdom, awardBossGold, awardRoomGold, getKingdomBonuses, KingdomState } from '../game/kingdom';
 import {
   GUIDE_INTRO_DIALOGUE, GUIDE_ZONE_DIALOGUES, VILLAIN_TAUNTS,
+  MALACHAR_DEFEAT_TAUNTS,
   getDefaultQuestState, updateQuestProgress, QuestState, QUESTS,
 } from '../game/story';
 import TitleScreen from './TitleScreen';
@@ -28,6 +29,7 @@ import WorldMap from './WorldMap';
 import MalacharQTE from './MalacharQTE';
 
 type GamePhase = 'title' | 'intro' | 'playing' | 'paused';
+type FinalBossSceneZone = ElementType | 'malachar';
 
 const ZONE_ORDER: ElementType[] = ['fire', 'ice', 'lightning', 'shadow', 'earth', 'wind', 'nature', 'void'];
 
@@ -46,7 +48,7 @@ export default function GameCanvas() {
   const [notification, setNotification] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNPCDialogue, setShowNPCDialogue] = useState(false);
-  const [bossCutsceneZone, setBossCutsceneZone] = useState<ElementType | null>(null);
+  const [bossCutsceneZone, setBossCutsceneZone] = useState<FinalBossSceneZone | null>(null);
   const [zoneEntryDialogue, setZoneEntryDialogue] = useState<ElementType | null>(null);
   const [currentZone, setCurrentZone] = useState<ElementType>('fire');
   const [kingdom, setKingdom] = useState<KingdomState>(() => loadKingdom());
@@ -55,7 +57,7 @@ export default function GameCanvas() {
   // New: quest state, world map, villain cutscene
   const [questState, setQuestState] = useState<QuestState>(() => getDefaultQuestState());
   const [showWorldMap, setShowWorldMap] = useState(false);
-  const [villainCutscene, setVillainCutscene] = useState<ElementType | null>(null);
+  const [villainCutscene, setVillainCutscene] = useState<FinalBossSceneZone | null>(null);
   const [bossesDefeated, setBossesDefeated] = useState<string[]>([]);
   const [totalFloorsCleared, setTotalFloorsCleared] = useState(0);
   const [showMalacharQTE, setShowMalacharQTE] = useState(false);
@@ -296,7 +298,7 @@ export default function GameCanvas() {
       return;
     }
     // After Malachar defeat villain cutscene — game won, go to kingdom
-    if (zone === 'malachar' as any) {
+    if (zone === 'malachar') {
       setKingdomDefeatedZone('void');
       setShowKingdom(true);
       return;
@@ -455,9 +457,9 @@ export default function GameCanvas() {
       {/* Boss post-fight cutscene */}
       {bossCutsceneZone && (
         <StoryCutscene
-          title={`${BOSS_NAME_MAP[bossCutsceneZone]} Defeated`}
+          title={`${bossCutsceneZone === 'malachar' ? 'Malachar' : BOSS_NAME_MAP[bossCutsceneZone]} Defeated`}
           lines={POST_BOSS_DIALOGUES[bossCutsceneZone] || []}
-          zone={bossCutsceneZone}
+          zone={bossCutsceneZone === 'malachar' ? 'void' : bossCutsceneZone}
           onComplete={handleBossCutsceneComplete}
         />
       )}
@@ -466,8 +468,8 @@ export default function GameCanvas() {
       {villainCutscene && (
         <StoryCutscene
           title="A Dark Presence..."
-          lines={VILLAIN_TAUNTS[villainCutscene]}
-          zone={villainCutscene}
+          lines={villainCutscene === 'malachar' ? MALACHAR_DEFEAT_TAUNTS : VILLAIN_TAUNTS[villainCutscene]}
+          zone={villainCutscene === 'malachar' ? 'void' : villainCutscene}
           onComplete={handleVillainCutsceneComplete}
         />
       )}
