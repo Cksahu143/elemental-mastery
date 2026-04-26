@@ -78,25 +78,48 @@ const ELEMENT_COMBOS: Record<string, { name: string; color: string; damage: numb
 };
 
 // ─── Malachar Phase 2 (Desperate Form) ───
+export type MalacharQTEType = 'block' | 'dodge' | 'counter';
 let malacharPhase2 = false;
 let malacharTeleportTimer = 0;
 let malacharQTEActive = false;
-let malacharQTECallback: ((blocked: boolean) => void) | null = null;
-let onMalacharQTE: (() => void) | null = null;
+let currentQTEType: MalacharQTEType = 'block';
+let onMalacharQTE: ((type: MalacharQTEType) => void) | null = null;
 
-export function setMalacharQTECallback(cb: () => void) { onMalacharQTE = cb; }
+export function setMalacharQTECallback(cb: (type: MalacharQTEType) => void) { onMalacharQTE = cb; }
 export function isMalacharQTEActive(): boolean { return malacharQTEActive; }
-export function resolveMalacharQTE(blocked: boolean) {
+export function getCurrentQTEType(): MalacharQTEType { return currentQTEType; }
+export function resolveMalacharQTE(success: boolean) {
   malacharQTEActive = false;
-  if (!blocked && player) {
-    // Failed to block — massive damage
-    player.hp -= player.maxHp * 0.4;
+  const boss = room?.enemies.find(e => (e as any).isMalachar);
+  if (!success && player) {
+    // Failed — damage scales with QTE difficulty
+    const dmgPct = currentQTEType === 'counter' ? 0.5 : currentQTEType === 'dodge' ? 0.35 : 0.4;
+    player.hp -= player.maxHp * dmgPct;
     screenShake = 25;
     if (player.hp <= 0) player.hp = 0;
-  } else {
-    // Blocked — stun Malachar briefly
-    const boss = room?.enemies.find(e => (e as any).isMalachar);
-    if (boss) {
+  } else if (boss) {
+    if (currentQTEType === 'counter') {
+      // Counter — reflect heavy damage back at Malachar
+      boss.hp -= boss.maxHp * 0.08;
+      boss.isTired = true;
+      boss.tiredTimer = 4;
+      screenShake = 18;
+      // Visual reflect burst
+      for (let i = 0; i < 24; i++) {
+        const ang = (Math.PI * 2 * i) / 24;
+        particles.push({
+          x: boss.pos.x + 12, y: boss.pos.y + 12,
+          vx: Math.cos(ang) * 220, vy: Math.sin(ang) * 220,
+          life: 0.7, maxLife: 0.7, color: '#FFD700', size: 4,
+        });
+      }
+    } else if (currentQTEType === 'dodge') {
+      // Dodge — brief invuln window, mild stun
+      boss.isTired = true;
+      boss.tiredTimer = 2;
+      screenShake = 8;
+    } else {
+      // Block — stun
       boss.isTired = true;
       boss.tiredTimer = 3;
       screenShake = 10;
