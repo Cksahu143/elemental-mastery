@@ -439,7 +439,10 @@ export function update(dt: number) {
         screenShake = 15;
         // Trigger QTE
         malacharQTEActive = true;
-        onMalacharQTE?.();
+        // Pick a random QTE type weighted by phase progress
+        const r = Math.random();
+        currentQTEType = r < 0.4 ? 'block' : r < 0.75 ? 'dodge' : 'counter';
+        onMalacharQTE?.(currentQTEType);
         return; // Freeze updates
       }
       
