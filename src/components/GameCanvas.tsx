@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, ElementType, SKILLS } from '../game/types';
-import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, switchElementBattle, unlockSkill, getActiveSkills, setKingdomRegen, getCameraMode, getGameTime, startMalacharFight, isMalacharActive, fireAllOutAttack, getAllOutCooldown, isGameCompleted, getProgressionZone, getComboState, setMalacharQTECallback, resolveMalacharQTE, isMalacharPhase2 } from '../game/engine';
+import { initInput, initGame, update, render, setCallbacks, getPlayer, getFloor, getSaveData, isPlayerDead, respawnPlayer, nextRoom, getRoom, switchElement, switchElementBattle, unlockSkill, getActiveSkills, setKingdomRegen, getCameraMode, getGameTime, startMalacharFight, isMalacharActive, fireAllOutAttack, getAllOutCooldown, isGameCompleted, getProgressionZone, getComboState, setMalacharQTECallback, resolveMalacharQTE, isMalacharPhase2, type MalacharQTEType } from '../game/engine';
 import { getDefaultSave, saveGame, loadGame, getLoreEntries } from '../game/saveSystem';
 import { POST_BOSS_DIALOGUES } from '../game/lore';
 import { SFX } from '../game/audio';
@@ -59,6 +59,7 @@ export default function GameCanvas() {
   const [bossesDefeated, setBossesDefeated] = useState<string[]>([]);
   const [totalFloorsCleared, setTotalFloorsCleared] = useState(0);
   const [showMalacharQTE, setShowMalacharQTE] = useState(false);
+  const [qteType, setQteType] = useState<MalacharQTEType>('block');
 
   const hasSave = loadGame() !== null;
 
@@ -119,7 +120,10 @@ export default function GameCanvas() {
 
   // Set up Malachar QTE callback
   useEffect(() => {
-    setMalacharQTECallback(() => setShowMalacharQTE(true));
+    setMalacharQTECallback((type) => {
+      setQteType(type);
+      setShowMalacharQTE(true);
+    });
   }, []);
 
   // Set up callbacks
@@ -407,11 +411,19 @@ export default function GameCanvas() {
       {/* Malachar QTE */}
       {showMalacharQTE && (
         <MalacharQTE
-          onComplete={(blocked) => {
+          qteType={qteType}
+          onComplete={(success) => {
             setShowMalacharQTE(false);
-            resolveMalacharQTE(blocked);
-            if (blocked) showNotif('BLOCKED! Malachar is stunned!');
-            else showNotif('Failed to block!');
+            resolveMalacharQTE(success);
+            if (success) {
+              if (qteType === 'counter') showNotif('REFLECTED! Malachar takes massive damage!');
+              else if (qteType === 'dodge') showNotif('DODGED! Malachar is off-balance!');
+              else showNotif('BLOCKED! Malachar is stunned!');
+            } else {
+              if (qteType === 'counter') showNotif('Failed to reflect — devastating hit!');
+              else if (qteType === 'dodge') showNotif('Beam connected!');
+              else showNotif('Failed to block!');
+            }
           }}
         />
       )}
