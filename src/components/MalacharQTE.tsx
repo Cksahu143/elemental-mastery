@@ -54,10 +54,35 @@ const ELEMENT_KEYS: { key: string; name: string; color: string }[] = [
   { key: '8', name: 'Void', color: '#EC4899' },
 ];
 
-export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQTEProps) {
-  const cfg = QTE_CONFIG[qteType];
+const TELEGRAPHS: Record<QTEType, { speaker: string; line: string; spell: string; spellEmoji: string }> = {
+  block: {
+    speaker: 'MALACHAR',
+    line: '"Feel the weight of OBLIVION!"',
+    spell: 'Crushing Void Slam',
+    spellEmoji: '💥',
+  },
+  dodge: {
+    speaker: 'MALACHAR',
+    line: '"Nowhere to run, little spark!"',
+    spell: 'Annihilation Beam',
+    spellEmoji: '🌀',
+  },
+  counter: {
+    speaker: 'MALACHAR',
+    line: '"Witness a TRUE elementalist!"',
+    spell: 'Eightfold Hex',
+    spellEmoji: '✨',
+  },
+};
+
+type Phase = 'cinematic' | 'telegraph' | 'qte';
+
+export default function MalacharQTE({ qteType, onComplete }: MalacharQTEProps) {
+  const safeType: QTEType = (qteType && QTE_CONFIG[qteType]) ? qteType : 'block';
+  const cfg = QTE_CONFIG[safeType];
+  const tele = TELEGRAPHS[safeType];
+  const [phase, setPhase] = useState<Phase>('cinematic');
   const [timeLeft, setTimeLeft] = useState(cfg.duration);
-  const [introPhase, setIntroPhase] = useState(true);
   const completedRef = useRef(false);
 
   const [presses, setPresses] = useState(0);
@@ -81,13 +106,15 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
     onComplete(success);
   };
 
+  // Cinematic → telegraph → qte sequencing
   useEffect(() => {
-    const t = setTimeout(() => setIntroPhase(false), 700);
-    return () => clearTimeout(t);
+    const t1 = setTimeout(() => setPhase('telegraph'), 1400);
+    const t2 = setTimeout(() => setPhase('qte'), 2600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
   useEffect(() => {
-    if (introPhase) return;
+    if (phase !== 'qte') return;
     const interval = setInterval(() => {
       setTimeLeft(prev => {
         const next = prev - 0.05;
@@ -100,12 +127,12 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
       });
     }, 50);
     return () => clearInterval(interval);
-  }, [introPhase]);
+  }, [phase]);
 
   useEffect(() => {
-    if (introPhase) return;
+    if (phase !== 'qte') return;
     const handler = (e: KeyboardEvent) => {
-      if (qteType === 'block') {
+      if (safeType === 'block') {
         if (e.key.toLowerCase() === 'b') {
           setPresses(prev => {
             const next = prev + 1;
@@ -113,7 +140,7 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
             return next;
           });
         }
-      } else if (qteType === 'dodge') {
+      } else if (safeType === 'dodge') {
         if ((ARROW_KEYS as readonly string[]).includes(e.key)) {
           e.preventDefault();
           setDodgeIdx(prev => {
@@ -126,7 +153,7 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
             return prev;
           });
         }
-      } else if (qteType === 'counter') {
+      } else if (safeType === 'counter') {
         const idx = ELEMENT_KEYS.findIndex(el => el.key === e.key);
         if (idx >= 0) {
           setCounterIdx(prev => {
@@ -143,7 +170,7 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [introPhase, qteType, dodgeSequence, counterSequence]);
+  }, [phase, safeType, dodgeSequence, counterSequence]);
 
   const timePct = (timeLeft / cfg.duration) * 100;
 
@@ -166,7 +193,7 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
 
       {/* Slam-in portrait */}
       <div
-        className={introPhase ? 'animate-scale-in' : ''}
+        className={phase === 'cinematic' ? 'animate-scale-in' : ''}
         style={{
           position: 'absolute',
           left: '8%',
@@ -191,8 +218,8 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
         </div>
       </div>
 
-      {/* Intro slam text */}
-      {introPhase && (
+      {/* Phase 1: Cinematic slam title */}
+      {phase === 'cinematic' && (
         <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none animate-scale-in">
           <p
             className="text-7xl font-display font-bold tracking-widest text-center px-4"
@@ -207,8 +234,60 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
         </div>
       )}
 
+      {/* Phase 2: Dialogue + spell telegraph (Cookie Run-style) */}
+      {phase === 'telegraph' && (
+        <div className="relative z-30 ml-48 max-w-xl animate-fade-in">
+          {/* Dialogue bubble */}
+          <div
+            className="border-2 px-6 py-4 bg-card/95 backdrop-blur-sm mb-6 rounded"
+            style={{
+              borderColor: cfg.accent,
+              boxShadow: `0 0 30px ${cfg.accent}80, inset 0 0 15px ${cfg.accent}20`,
+            }}
+          >
+            <p
+              className="text-xs font-ui font-bold uppercase tracking-[0.25em] mb-2"
+              style={{ color: cfg.accent }}
+            >
+              {tele.speaker}
+            </p>
+            <p className="text-lg font-display text-foreground leading-relaxed italic">
+              {tele.line}
+            </p>
+          </div>
+
+          {/* Spell telegraph card */}
+          <div
+            className="border-2 rounded px-6 py-4 flex items-center gap-4 animate-pulse"
+            style={{
+              borderColor: cfg.accent,
+              background: `linear-gradient(90deg, ${cfg.accent}30, transparent)`,
+            }}
+          >
+            <span className="text-5xl" style={{ filter: `drop-shadow(0 0 12px ${cfg.accent})` }}>
+              {tele.spellEmoji}
+            </span>
+            <div>
+              <p className="text-[10px] font-ui uppercase tracking-widest text-muted-foreground">
+                Casting
+              </p>
+              <p
+                className="text-2xl font-display font-bold tracking-wider"
+                style={{ color: cfg.accent, textShadow: `0 0 20px ${cfg.accent}` }}
+              >
+                {tele.spell}
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs font-ui text-muted-foreground mt-4 text-center animate-pulse">
+            Get ready...
+          </p>
+        </div>
+      )}
+
       {/* Main QTE UI */}
-      {!introPhase && (
+      {phase === 'qte' && (
         <div className="relative z-20 text-center space-y-6 ml-48 animate-fade-in">
           <div>
             <p
@@ -222,7 +301,7 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
             </p>
           </div>
 
-          {qteType === 'block' && (
+          {safeType === 'block' && (
             <>
               <div className="flex items-center justify-center gap-3">
                 <span
@@ -248,7 +327,7 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
             </>
           )}
 
-          {qteType === 'dodge' && (
+          {safeType === 'dodge' && (
             <div className="flex items-center justify-center gap-3">
               {dodgeSequence.map((k, i) => {
                 const done = i < dodgeIdx;
@@ -271,7 +350,7 @@ export default function MalacharQTE({ qteType = 'block', onComplete }: MalacharQ
             </div>
           )}
 
-          {qteType === 'counter' && (
+          {safeType === 'counter' && (
             <div className="flex items-center justify-center gap-3">
               {counterSequence.map((el, i) => {
                 const done = i < counterIdx;
