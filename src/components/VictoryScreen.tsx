@@ -26,10 +26,20 @@ const EPILOGUE_LINES = [
   'It is the beginning of yours.',
 ];
 
+// Subtitle captions synced to the 5-second victory video (in seconds)
+const VIDEO_CAPTIONS: { start: number; end: number; text: string }[] = [
+  { start: 0.0, end: 1.2, text: 'Malachar — Architect of Ruin — falls.' },
+  { start: 1.2, end: 2.4, text: 'His obsidian armor shatters into light.' },
+  { start: 2.4, end: 3.5, text: 'The Bearer raises the Eight-Fold Crystal.' },
+  { start: 3.5, end: 4.5, text: 'The corruption is undone.' },
+  { start: 4.5, end: 5.0, text: 'Dawn breaks over the broken world.' },
+];
+
 export default function VictoryScreen({ floor, bossesDefeated, onReturnToTitle, onVisitKingdom }: VictoryScreenProps) {
   const [phase, setPhase] = useState<'video' | 'fanfare' | 'epilogue' | 'stats'>('video');
   const [lineIdx, setLineIdx] = useState(0);
   const [showLine, setShowLine] = useState(false);
+  const [videoTime, setVideoTime] = useState(0);
 
   // Fanfare → epilogue
   useEffect(() => {
@@ -84,11 +94,28 @@ export default function VictoryScreen({ floor, bossesDefeated, onReturnToTitle, 
             playsInline
             onEnded={() => setPhase('fanfare')}
             onError={() => setPhase('fanfare')}
+            onTimeUpdate={(e) => setVideoTime((e.target as HTMLVideoElement).currentTime)}
             className="w-full h-full object-contain"
           />
           {/* Letterbox bars for cinematic feel */}
           <div className="absolute top-0 left-0 right-0 h-12 bg-black pointer-events-none" />
           <div className="absolute bottom-0 left-0 right-0 h-12 bg-black pointer-events-none" />
+          {/* Synced subtitles */}
+          {(() => {
+            const cap = VIDEO_CAPTIONS.find(c => videoTime >= c.start && videoTime < c.end);
+            if (!cap) return null;
+            return (
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 px-6 py-2 max-w-3xl pointer-events-none">
+                <p
+                  key={cap.text}
+                  className="text-center text-xl md:text-2xl font-display text-white animate-fade-in"
+                  style={{ textShadow: '0 0 8px rgba(0,0,0,0.95), 0 2px 4px rgba(0,0,0,1)' }}
+                >
+                  {cap.text}
+                </p>
+              </div>
+            );
+          })()}
           <p className="absolute bottom-4 right-6 text-xs font-ui tracking-widest text-muted-foreground/70 animate-pulse">
             Click to skip
           </p>
