@@ -178,12 +178,30 @@ export default function GameCanvas() {
         // If zone is 'malachar', handle Malachar-specific cutscene
         if (zone === 'malachar' as any) {
           setBossCutsceneZone('malachar' as any);
-          setBossesDefeated(prev => prev.includes('malachar') ? prev : [...prev, 'malachar']);
+          setBossesDefeated(prev => {
+            const next = prev.includes('malachar') ? prev : [...prev, 'malachar'];
+            // Autosave after Malachar defeat
+            const data = getSaveData();
+            data.loreUnlocked = loreUnlocked;
+            data.bossesDefeated = next;
+            saveGame(data);
+            showNotif('Progress Autosaved');
+            return next;
+          });
           progressQuest('defeat_malachar', 'malachar');
           return;
         }
         setBossCutsceneZone(zone);
-        setBossesDefeated(prev => prev.includes(zone) ? prev : [...prev, zone]);
+        setBossesDefeated(prev => {
+          const next = prev.includes(zone) ? prev : [...prev, zone];
+          // Autosave after every boss defeat
+          const data = getSaveData();
+          data.loreUnlocked = loreUnlocked;
+          data.bossesDefeated = next;
+          saveGame(data);
+          showNotif('Progress Autosaved');
+          return next;
+        });
         progressQuest('kill_boss', zone);
         setKingdom(prev => {
           const updated = awardBossGold(prev, getFloor());
@@ -192,7 +210,7 @@ export default function GameCanvas() {
         });
       },
     });
-  }, [showNotif, currentZone, progressQuest]);
+  }, [showNotif, currentZone, progressQuest, loreUnlocked]);
 
   // Game loop
   useEffect(() => {
