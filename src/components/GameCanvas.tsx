@@ -72,6 +72,15 @@ export default function GameCanvas() {
     setTimeout(() => setNotification(null), 2000);
   }, []);
 
+  // Centralized autosave — call after any progression checkpoint
+  const autosave = useCallback((reason: string, overrides?: { bossesDefeated?: string[]; loreUnlocked?: string[] }) => {
+    const data = getSaveData();
+    data.loreUnlocked = overrides?.loreUnlocked ?? loreUnlocked;
+    data.bossesDefeated = overrides?.bossesDefeated ?? bossesDefeated;
+    saveGame(data);
+    showNotif(`Autosaved — ${reason}`);
+  }, [loreUnlocked, bossesDefeated, showNotif]);
+
   // Quest progress helper
   const progressQuest = useCallback((type: any, target: any, amount = 1) => {
     setQuestState(prev => {
@@ -159,6 +168,10 @@ export default function GameCanvas() {
       onLevelUp: () => {
         showNotif('LEVEL UP!');
         setShowStats(true);
+        autosave('Level Up');
+      },
+      onElementUnlocked: (zone) => {
+        autosave(`${zone.charAt(0).toUpperCase() + zone.slice(1)} Element Unlocked`);
       },
       onRoomCleared: () => {
         showNotif('Room Cleared!');
@@ -180,12 +193,7 @@ export default function GameCanvas() {
           setBossCutsceneZone('malachar' as any);
           setBossesDefeated(prev => {
             const next = prev.includes('malachar') ? prev : [...prev, 'malachar'];
-            // Autosave after Malachar defeat
-            const data = getSaveData();
-            data.loreUnlocked = loreUnlocked;
-            data.bossesDefeated = next;
-            saveGame(data);
-            showNotif('Progress Autosaved');
+            autosave('Malachar Defeated', { bossesDefeated: next });
             return next;
           });
           progressQuest('defeat_malachar', 'malachar');
@@ -194,12 +202,7 @@ export default function GameCanvas() {
         setBossCutsceneZone(zone);
         setBossesDefeated(prev => {
           const next = prev.includes(zone) ? prev : [...prev, zone];
-          // Autosave after every boss defeat
-          const data = getSaveData();
-          data.loreUnlocked = loreUnlocked;
-          data.bossesDefeated = next;
-          saveGame(data);
-          showNotif('Progress Autosaved');
+          autosave(`${zone.charAt(0).toUpperCase() + zone.slice(1)} Boss Defeated`, { bossesDefeated: next });
           return next;
         });
         progressQuest('kill_boss', zone);
@@ -210,7 +213,7 @@ export default function GameCanvas() {
         });
       },
     });
-  }, [showNotif, currentZone, progressQuest, loreUnlocked]);
+  }, [showNotif, currentZone, progressQuest, autosave]);
 
   // Game loop
   useEffect(() => {

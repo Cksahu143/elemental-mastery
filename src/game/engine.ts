@@ -134,6 +134,7 @@ let onLoreFound: ((id: string) => void) | null = null;
 let onLevelUp: (() => void) | null = null;
 let onRoomCleared: (() => void) | null = null;
 let onBossDefeated: ((zone: ElementType) => void) | null = null;
+let onElementUnlocked: ((zone: ElementType) => void) | null = null;
 let bossDialogueShown = false;
 
 export function setCallbacks(cbs: {
@@ -143,6 +144,7 @@ export function setCallbacks(cbs: {
   onLevelUp?: () => void;
   onRoomCleared?: () => void;
   onBossDefeated?: (zone: ElementType) => void;
+  onElementUnlocked?: (zone: ElementType) => void;
 }) {
   onStateChange = cbs.onStateChange || null;
   onBossEncounter = cbs.onBossEncounter || null;
@@ -150,6 +152,7 @@ export function setCallbacks(cbs: {
   onLevelUp = cbs.onLevelUp || null;
   onRoomCleared = cbs.onRoomCleared || null;
   onBossDefeated = cbs.onBossDefeated || null;
+  onElementUnlocked = cbs.onElementUnlocked || null;
 }
 
 export function getPlayer(): PlayerState { return player; }
@@ -1511,6 +1514,7 @@ function onEnemyKill(enemy: Enemy) {
       player.unlockedElements.push(enemy.element);
       SFX.elementUnlock();
       onStateChange?.();
+      onElementUnlocked?.(enemy.element);
     }
     // Unlock next zone
     const zoneOrder: ElementType[] = ['fire', 'ice', 'lightning', 'shadow', 'earth', 'wind', 'nature', 'void'];
@@ -1518,6 +1522,7 @@ function onEnemyKill(enemy: Enemy) {
     if (nextIdx < zoneOrder.length && !player.unlockedElements.includes(zoneOrder[nextIdx])) {
       player.unlockedElements.push(zoneOrder[nextIdx]);
       onStateChange?.();
+      onElementUnlocked?.(zoneOrder[nextIdx]);
     }
     // Trigger post-boss cutscene
     onBossDefeated?.(enemy.element);
