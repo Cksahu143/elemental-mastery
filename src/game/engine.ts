@@ -1514,6 +1514,7 @@ function onEnemyKill(enemy: Enemy) {
       player.unlockedElements.push(enemy.element);
       SFX.elementUnlock();
       onStateChange?.();
+      onElementUnlocked?.(enemy.element);
     }
     // Unlock next zone
     const zoneOrder: ElementType[] = ['fire', 'ice', 'lightning', 'shadow', 'earth', 'wind', 'nature', 'void'];
@@ -1521,6 +1522,7 @@ function onEnemyKill(enemy: Enemy) {
     if (nextIdx < zoneOrder.length && !player.unlockedElements.includes(zoneOrder[nextIdx])) {
       player.unlockedElements.push(zoneOrder[nextIdx]);
       onStateChange?.();
+      onElementUnlocked?.(zoneOrder[nextIdx]);
     }
     // Trigger post-boss cutscene
     onBossDefeated?.(enemy.element);
