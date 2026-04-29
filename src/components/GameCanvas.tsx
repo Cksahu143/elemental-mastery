@@ -312,13 +312,9 @@ export default function GameCanvas() {
   const handleVillainCutsceneComplete = useCallback(() => {
     const zone = villainCutscene!;
     setVillainCutscene(null);
-    // After void boss villain cutscene, trigger Malachar fight
-    if (zone === 'void') {
-      startMalacharFight();
-      return;
-    }
-    // After Malachar defeat villain cutscene — game won, show epic victory screen
-    if (zone === 'malachar') {
+    // After void boss (Nullex) — game won! Malachar is sealed away by the eight elements.
+    // After Malachar defeat villain cutscene — game won, show epic victory screen.
+    if (zone === 'void' || zone === 'malachar') {
       setShowVictory(true);
       return;
     }
