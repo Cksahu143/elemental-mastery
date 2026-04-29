@@ -27,6 +27,7 @@ import IntroCutscene from './IntroCutscene';
 import Game3DCanvas from './Game3DCanvas';
 import WorldMap from './WorldMap';
 import MalacharQTE from './MalacharQTE';
+import VictoryScreen from './VictoryScreen';
 
 type GamePhase = 'title' | 'intro' | 'playing' | 'paused';
 type FinalBossSceneZone = ElementType | 'malachar';
@@ -62,6 +63,7 @@ export default function GameCanvas() {
   const [totalFloorsCleared, setTotalFloorsCleared] = useState(0);
   const [showMalacharQTE, setShowMalacharQTE] = useState(false);
   const [qteType, setQteType] = useState<MalacharQTEType>('block');
+  const [showVictory, setShowVictory] = useState(false);
 
   const hasSave = loadGame() !== null;
 
@@ -207,7 +209,7 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene || showMalacharQTE;
+      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene || showMalacharQTE || showVictory;
       if (!isPaused) {
         update(dt);
       }
@@ -226,7 +228,7 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene, showMalacharQTE]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene, showMalacharQTE, showVictory]);
 
   // Key bindings
   useEffect(() => {
@@ -297,10 +299,9 @@ export default function GameCanvas() {
       startMalacharFight();
       return;
     }
-    // After Malachar defeat villain cutscene — game won, go to kingdom
+    // After Malachar defeat villain cutscene — game won, show epic victory screen
     if (zone === 'malachar') {
-      setKingdomDefeatedZone('void');
-      setShowKingdom(true);
+      setShowVictory(true);
       return;
     }
     proceedToKingdom(zone);
