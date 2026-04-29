@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import CutsceneBackground from './CutsceneBackground';
 import DialogueParticles from './DialogueParticles';
 import malacharPortrait from '../assets/portrait-nullex.jpg';
+import victoryVideoAsset from '../assets/victory-cutscene.mp4.asset.json';
 
 interface VictoryScreenProps {
   floor: number;
@@ -26,7 +27,7 @@ const EPILOGUE_LINES = [
 ];
 
 export default function VictoryScreen({ floor, bossesDefeated, onReturnToTitle, onVisitKingdom }: VictoryScreenProps) {
-  const [phase, setPhase] = useState<'fanfare' | 'epilogue' | 'stats'>('fanfare');
+  const [phase, setPhase] = useState<'video' | 'fanfare' | 'epilogue' | 'stats'>('video');
   const [lineIdx, setLineIdx] = useState(0);
   const [showLine, setShowLine] = useState(false);
 
@@ -53,7 +54,8 @@ export default function VictoryScreen({ floor, bossesDefeated, onReturnToTitle, 
   }, [phase, lineIdx]);
 
   const skip = () => {
-    if (phase === 'fanfare') setPhase('epilogue');
+    if (phase === 'video') setPhase('fanfare');
+    else if (phase === 'fanfare') setPhase('epilogue');
     else if (phase === 'epilogue') {
       if (lineIdx < EPILOGUE_LINES.length - 1) setLineIdx(i => i + 1);
       else setPhase('stats');
@@ -65,9 +67,33 @@ export default function VictoryScreen({ floor, bossesDefeated, onReturnToTitle, 
       className="fixed inset-0 z-[200] flex items-center justify-center bg-background overflow-hidden"
       onClick={phase !== 'stats' ? skip : undefined}
     >
-      <CutsceneBackground zone="void" intensity={2} />
-      <DialogueParticles element="void" intensity={2} />
-      <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background/80 pointer-events-none" />
+      {phase !== 'video' && (
+        <>
+          <CutsceneBackground zone="void" intensity={2} />
+          <DialogueParticles element="void" intensity={2} />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background/80 pointer-events-none" />
+        </>
+      )}
+
+      {phase === 'video' && (
+        <div className="absolute inset-0 bg-black flex items-center justify-center animate-fade-in">
+          <video
+            src={victoryVideoAsset.url}
+            autoPlay
+            muted
+            playsInline
+            onEnded={() => setPhase('fanfare')}
+            onError={() => setPhase('fanfare')}
+            className="w-full h-full object-contain"
+          />
+          {/* Letterbox bars for cinematic feel */}
+          <div className="absolute top-0 left-0 right-0 h-12 bg-black pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 h-12 bg-black pointer-events-none" />
+          <p className="absolute bottom-4 right-6 text-xs font-ui tracking-widest text-muted-foreground/70 animate-pulse">
+            Click to skip
+          </p>
+        </div>
+      )}
 
       {phase === 'fanfare' && (
         <div className="relative z-10 text-center px-8 animate-fade-in">
