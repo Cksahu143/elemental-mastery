@@ -514,6 +514,21 @@ export default function GameCanvas() {
           zone={player?.element || 'fire'}
         />
       )}
+      {showVictory && (
+        <VictoryScreen
+          floor={floor}
+          bossesDefeated={bossesDefeated}
+          onReturnToTitle={() => {
+            setShowVictory(false);
+            setPhase('title');
+          }}
+          onVisitKingdom={() => {
+            setShowVictory(false);
+            setKingdomDefeatedZone('void');
+            setShowKingdom(true);
+          }}
+        />
+      )}
       {phase === 'paused' && (
         <PauseMenu
           onResume={() => setPhase('playing')}
