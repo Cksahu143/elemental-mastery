@@ -134,6 +134,7 @@ let onLoreFound: ((id: string) => void) | null = null;
 let onLevelUp: (() => void) | null = null;
 let onRoomCleared: (() => void) | null = null;
 let onBossDefeated: ((zone: ElementType) => void) | null = null;
+let onElementUnlocked: ((zone: ElementType) => void) | null = null;
 let bossDialogueShown = false;
 
 export function setCallbacks(cbs: {
@@ -143,6 +144,7 @@ export function setCallbacks(cbs: {
   onLevelUp?: () => void;
   onRoomCleared?: () => void;
   onBossDefeated?: (zone: ElementType) => void;
+  onElementUnlocked?: (zone: ElementType) => void;
 }) {
   onStateChange = cbs.onStateChange || null;
   onBossEncounter = cbs.onBossEncounter || null;
@@ -150,6 +152,7 @@ export function setCallbacks(cbs: {
   onLevelUp = cbs.onLevelUp || null;
   onRoomCleared = cbs.onRoomCleared || null;
   onBossDefeated = cbs.onBossDefeated || null;
+  onElementUnlocked = cbs.onElementUnlocked || null;
 }
 
 export function getPlayer(): PlayerState { return player; }
