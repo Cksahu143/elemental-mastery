@@ -28,6 +28,15 @@ import Game3DCanvas from './Game3DCanvas';
 import WorldMap from './WorldMap';
 import MalacharQTE from './MalacharQTE';
 import VictoryScreen from './VictoryScreen';
+import SealedDoor from './SealedDoor';
+import KeyOrbitCutscene from './KeyOrbitCutscene';
+import SecretRoomScene from './SecretRoomScene';
+import EndingSelectionDialog, { EndingChoice } from './EndingSelectionDialog';
+import TrialScreen, { TrialId } from './TrialScreen';
+import ConvergenceDungeon from './ConvergenceDungeon';
+import AscendedMalacharFight from './AscendedMalacharFight';
+import TrueEndingCutscene from './TrueEndingCutscene';
+import { EndgameState, makeDefaultEndgame, hasAllBossKeys, bossKeyName, TRUE_KEYS } from '../game/endgame';
 
 type GamePhase = 'title' | 'intro' | 'playing' | 'paused';
 type FinalBossSceneZone = ElementType | 'malachar';
@@ -64,6 +73,29 @@ export default function GameCanvas() {
   const [showMalacharQTE, setShowMalacharQTE] = useState(false);
   const [qteType, setQteType] = useState<MalacharQTEType>('block');
   const [showVictory, setShowVictory] = useState(false);
+  // ─── Endgame layer state ───
+  const [endgame, setEndgame] = useState<EndgameState>(() => {
+    const s = loadGame();
+    if (!s) return makeDefaultEndgame();
+    return {
+      keysCollected: s.keysCollected ?? {},
+      trueKeys: s.trueKeys ?? {},
+      malacharDefeatedOnce: s.malacharDefeatedOnce ?? false,
+      secretRoomUnlocked: s.secretRoomUnlocked ?? false,
+      ascendedMalacharDefeated: s.ascendedMalacharDefeated ?? false,
+      endingChosen: s.endingChosen,
+    };
+  });
+  // post-victory empty arena overlays
+  const [inEmptyArena, setInEmptyArena] = useState(false);
+  const [showSealedDoor, setShowSealedDoor] = useState(false);
+  const [showKeyOrbit, setShowKeyOrbit] = useState(false);
+  const [showSecretRoom, setShowSecretRoom] = useState(false);
+  const [showEndingSelect, setShowEndingSelect] = useState(false);
+  const [activeTrial, setActiveTrial] = useState<TrialId | null>(null);
+  const [showConvergence, setShowConvergence] = useState(false);
+  const [showAscended, setShowAscended] = useState(false);
+  const [showTrueEnding, setShowTrueEnding] = useState(false);
 
   const hasSave = loadGame() !== null;
 
@@ -73,13 +105,20 @@ export default function GameCanvas() {
   }, []);
 
   // Centralized autosave — call after any progression checkpoint
-  const autosave = useCallback((reason: string, overrides?: { bossesDefeated?: string[]; loreUnlocked?: string[] }) => {
+  const autosave = useCallback((reason: string, overrides?: { bossesDefeated?: string[]; loreUnlocked?: string[]; endgame?: EndgameState }) => {
     const data = getSaveData();
     data.loreUnlocked = overrides?.loreUnlocked ?? loreUnlocked;
     data.bossesDefeated = overrides?.bossesDefeated ?? bossesDefeated;
+    const eg = overrides?.endgame ?? endgame;
+    data.keysCollected = eg.keysCollected;
+    data.trueKeys = eg.trueKeys;
+    data.malacharDefeatedOnce = eg.malacharDefeatedOnce;
+    data.secretRoomUnlocked = eg.secretRoomUnlocked;
+    data.ascendedMalacharDefeated = eg.ascendedMalacharDefeated;
+    data.endingChosen = eg.endingChosen;
     saveGame(data);
     showNotif(`Autosaved — ${reason}`);
-  }, [loreUnlocked, bossesDefeated, showNotif]);
+  }, [loreUnlocked, bossesDefeated, endgame, showNotif]);
 
   // Quest progress helper
   const progressQuest = useCallback((type: any, target: any, amount = 1) => {
