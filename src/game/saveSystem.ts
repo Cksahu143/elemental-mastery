@@ -21,6 +21,11 @@ export function getDefaultSave(): SaveData {
     maxMana: 80,
     xp: 0,
     xpToNext: 80,
+    keysCollected: {},
+    trueKeys: {},
+    malacharDefeatedOnce: false,
+    secretRoomUnlocked: false,
+    ascendedMalacharDefeated: false,
   };
 }
 
