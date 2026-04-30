@@ -136,6 +136,13 @@ export interface SaveData {
   maxMana: number;
   xp: number;
   xpToNext: number;
+  // ─── Endgame Key System ───
+  keysCollected?: Partial<Record<ElementType, boolean>>;
+  trueKeys?: { balanceCore?: boolean; creationCore?: boolean; freedomCore?: boolean };
+  malacharDefeatedOnce?: boolean;
+  secretRoomUnlocked?: boolean;
+  ascendedMalacharDefeated?: boolean;
+  endingChosen?: 'restore' | 'rewrite' | 'reject' | 'true';
 }
 
 export const ELEMENT_COLORS: Record<ElementType, string> = {

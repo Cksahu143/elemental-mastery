@@ -28,6 +28,15 @@ import Game3DCanvas from './Game3DCanvas';
 import WorldMap from './WorldMap';
 import MalacharQTE from './MalacharQTE';
 import VictoryScreen from './VictoryScreen';
+import SealedDoor from './SealedDoor';
+import KeyOrbitCutscene from './KeyOrbitCutscene';
+import SecretRoomScene from './SecretRoomScene';
+import EndingSelectionDialog, { EndingChoice } from './EndingSelectionDialog';
+import TrialScreen, { TrialId } from './TrialScreen';
+import ConvergenceDungeon from './ConvergenceDungeon';
+import AscendedMalacharFight from './AscendedMalacharFight';
+import TrueEndingCutscene from './TrueEndingCutscene';
+import { EndgameState, makeDefaultEndgame, hasAllBossKeys, bossKeyName, TRUE_KEYS } from '../game/endgame';
 
 type GamePhase = 'title' | 'intro' | 'playing' | 'paused';
 type FinalBossSceneZone = ElementType | 'malachar';
@@ -64,6 +73,29 @@ export default function GameCanvas() {
   const [showMalacharQTE, setShowMalacharQTE] = useState(false);
   const [qteType, setQteType] = useState<MalacharQTEType>('block');
   const [showVictory, setShowVictory] = useState(false);
+  // ─── Endgame layer state ───
+  const [endgame, setEndgame] = useState<EndgameState>(() => {
+    const s = loadGame();
+    if (!s) return makeDefaultEndgame();
+    return {
+      keysCollected: s.keysCollected ?? {},
+      trueKeys: s.trueKeys ?? {},
+      malacharDefeatedOnce: s.malacharDefeatedOnce ?? false,
+      secretRoomUnlocked: s.secretRoomUnlocked ?? false,
+      ascendedMalacharDefeated: s.ascendedMalacharDefeated ?? false,
+      endingChosen: s.endingChosen,
+    };
+  });
+  // post-victory empty arena overlays
+  const [inEmptyArena, setInEmptyArena] = useState(false);
+  const [showSealedDoor, setShowSealedDoor] = useState(false);
+  const [showKeyOrbit, setShowKeyOrbit] = useState(false);
+  const [showSecretRoom, setShowSecretRoom] = useState(false);
+  const [showEndingSelect, setShowEndingSelect] = useState(false);
+  const [activeTrial, setActiveTrial] = useState<TrialId | null>(null);
+  const [showConvergence, setShowConvergence] = useState(false);
+  const [showAscended, setShowAscended] = useState(false);
+  const [showTrueEnding, setShowTrueEnding] = useState(false);
 
   const hasSave = loadGame() !== null;
 
@@ -73,13 +105,20 @@ export default function GameCanvas() {
   }, []);
 
   // Centralized autosave — call after any progression checkpoint
-  const autosave = useCallback((reason: string, overrides?: { bossesDefeated?: string[]; loreUnlocked?: string[] }) => {
+  const autosave = useCallback((reason: string, overrides?: { bossesDefeated?: string[]; loreUnlocked?: string[]; endgame?: EndgameState }) => {
     const data = getSaveData();
     data.loreUnlocked = overrides?.loreUnlocked ?? loreUnlocked;
     data.bossesDefeated = overrides?.bossesDefeated ?? bossesDefeated;
+    const eg = overrides?.endgame ?? endgame;
+    data.keysCollected = eg.keysCollected;
+    data.trueKeys = eg.trueKeys;
+    data.malacharDefeatedOnce = eg.malacharDefeatedOnce;
+    data.secretRoomUnlocked = eg.secretRoomUnlocked;
+    data.ascendedMalacharDefeated = eg.ascendedMalacharDefeated;
+    data.endingChosen = eg.endingChosen;
     saveGame(data);
     showNotif(`Autosaved — ${reason}`);
-  }, [loreUnlocked, bossesDefeated, showNotif]);
+  }, [loreUnlocked, bossesDefeated, endgame, showNotif]);
 
   // Quest progress helper
   const progressQuest = useCallback((type: any, target: any, amount = 1) => {
@@ -108,6 +147,24 @@ export default function GameCanvas() {
     setBossesDefeated(save.bossesDefeated || []);
     setCurrentZone(save.currentZone);
     setShowDeath(false);
+    setEndgame({
+      keysCollected: save.keysCollected ?? {},
+      trueKeys: save.trueKeys ?? {},
+      malacharDefeatedOnce: save.malacharDefeatedOnce ?? false,
+      secretRoomUnlocked: save.secretRoomUnlocked ?? false,
+      ascendedMalacharDefeated: save.ascendedMalacharDefeated ?? false,
+      endingChosen: save.endingChosen,
+    });
+    // Reset transient endgame overlays
+    setInEmptyArena(false);
+    setShowSealedDoor(false);
+    setShowKeyOrbit(false);
+    setShowSecretRoom(false);
+    setShowEndingSelect(false);
+    setActiveTrial(null);
+    setShowConvergence(false);
+    setShowAscended(false);
+    setShowTrueEnding(false);
     if (isNew) {
       setQuestState(getDefaultQuestState());
       setPhase('intro');
@@ -196,6 +253,12 @@ export default function GameCanvas() {
             autosave('Malachar Defeated', { bossesDefeated: next });
             return next;
           });
+          // Mark Malachar defeated once — unlocks empty-arena re-entry
+          setEndgame(prev => {
+            const next = { ...prev, malacharDefeatedOnce: true };
+            autosave('Malachar Defeated Once', { endgame: next });
+            return next;
+          });
           progressQuest('defeat_malachar', 'malachar');
           return;
         }
@@ -203,6 +266,14 @@ export default function GameCanvas() {
         setBossesDefeated(prev => {
           const next = prev.includes(zone) ? prev : [...prev, zone];
           autosave(`${zone.charAt(0).toUpperCase() + zone.slice(1)} Boss Defeated`, { bossesDefeated: next });
+          return next;
+        });
+        // Award key if not yet collected
+        setEndgame(prev => {
+          if (prev.keysCollected[zone]) return prev;
+          const next: EndgameState = { ...prev, keysCollected: { ...prev.keysCollected, [zone]: true } };
+          showNotif(`🗝 ${bossKeyName(zone)} obtained!`);
+          autosave(`${bossKeyName(zone)} Obtained`, { endgame: next });
           return next;
         });
         progressQuest('kill_boss', zone);
@@ -230,7 +301,7 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene || showMalacharQTE || showVictory;
+      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene || showMalacharQTE || showVictory || inEmptyArena || showSealedDoor || showKeyOrbit || showSecretRoom || showEndingSelect || !!activeTrial || showConvergence || showAscended || showTrueEnding;
       if (!isPaused) {
         update(dt);
       }
@@ -249,7 +320,7 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene, showMalacharQTE, showVictory]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene, showMalacharQTE, showVictory, inEmptyArena, showSealedDoor, showKeyOrbit, showSecretRoom, showEndingSelect, activeTrial, showConvergence, showAscended, showTrueEnding]);
 
   // Key bindings
   useEffect(() => {
@@ -278,9 +349,15 @@ export default function GameCanvas() {
     const data = getSaveData();
     data.loreUnlocked = loreUnlocked;
     data.bossesDefeated = bossesDefeated;
+    data.keysCollected = endgame.keysCollected;
+    data.trueKeys = endgame.trueKeys;
+    data.malacharDefeatedOnce = endgame.malacharDefeatedOnce;
+    data.secretRoomUnlocked = endgame.secretRoomUnlocked;
+    data.ascendedMalacharDefeated = endgame.ascendedMalacharDefeated;
+    data.endingChosen = endgame.endingChosen;
     saveGame(data);
     showNotif('Game Saved!');
-  }, [loreUnlocked, bossesDefeated, showNotif]);
+  }, [loreUnlocked, bossesDefeated, endgame, showNotif]);
 
   // After boss post-dialogue, show villain taunt, then kingdom
   const handleBossCutsceneComplete = useCallback(() => {
@@ -381,6 +458,7 @@ export default function GameCanvas() {
             floor={floor}
             zone={player.element}
             questState={questState}
+            endgame={endgame}
             onOpenLore={() => setShowLore(true)}
             onOpenStats={() => setShowStats(true)}
             onOpenSkills={() => setShowSkills(true)}
@@ -521,6 +599,12 @@ export default function GameCanvas() {
           }}
           onContinue={handleKingdomContinue}
           standalone={!bossCutsceneZone}
+          showReturnToArena={endgame.malacharDefeatedOnce && !endgame.ascendedMalacharDefeated}
+          onReturnToArena={() => {
+            setShowKingdom(false);
+            setInEmptyArena(true);
+            showNotif('You enter the silent arena…');
+          }}
         />
       )}
       {showDeath && (
@@ -558,6 +642,183 @@ export default function GameCanvas() {
           }}
         />
       )}
+
+      {/* ─── Endgame Layer ─── */}
+      {inEmptyArena && (
+        <EmptyArenaOverlay
+          endgame={endgame}
+          onApproachDoor={() => setShowSealedDoor(true)}
+          onLeave={() => {
+            setInEmptyArena(false);
+            setKingdomDefeatedZone('void');
+            setShowKingdom(true);
+          }}
+        />
+      )}
+      {showSealedDoor && (
+        <SealedDoor
+          endgame={endgame}
+          onUseKeys={() => {
+            if (!hasAllBossKeys(endgame)) return;
+            setShowSealedDoor(false);
+            setShowKeyOrbit(true);
+          }}
+          onLeave={() => setShowSealedDoor(false)}
+        />
+      )}
+      {showKeyOrbit && (
+        <KeyOrbitCutscene
+          onComplete={() => {
+            setShowKeyOrbit(false);
+            setEndgame(prev => {
+              const next = { ...prev, secretRoomUnlocked: true };
+              autosave('Secret Room Unlocked', { endgame: next });
+              return next;
+            });
+            setInEmptyArena(false);
+            setShowSecretRoom(true);
+          }}
+        />
+      )}
+      {showSecretRoom && (
+        <SecretRoomScene
+          endgame={endgame}
+          onInteract={() => setShowEndingSelect(true)}
+          onLeave={() => {
+            setShowSecretRoom(false);
+            setKingdomDefeatedZone('void');
+            setShowKingdom(true);
+          }}
+        />
+      )}
+      {showEndingSelect && (
+        <EndingSelectionDialog
+          endgame={endgame}
+          onChoose={(choice: EndingChoice) => {
+            setShowEndingSelect(false);
+            if (choice === 'fix') {
+              setEndgame(prev => {
+                const next = { ...prev, endingChosen: 'true' as const };
+                autosave('Convergence Initiated', { endgame: next });
+                return next;
+              });
+              setShowSecretRoom(false);
+              setShowConvergence(true);
+            } else {
+              setActiveTrial(choice as TrialId);
+            }
+          }}
+          onClose={() => setShowEndingSelect(false)}
+        />
+      )}
+      {activeTrial && (
+        <TrialScreen
+          trial={activeTrial}
+          onComplete={(success, reward) => {
+            if (success) {
+              setEndgame(prev => {
+                const next: EndgameState = { ...prev, trueKeys: { ...prev.trueKeys, [reward]: true } };
+                const trialName = TRUE_KEYS.find(k => k.id === reward)?.name ?? 'Trial';
+                autosave(`Trial Completed — ${trialName}`, { endgame: next });
+                return next;
+              });
+            }
+            setActiveTrial(null);
+          }}
+        />
+      )}
+      {showConvergence && (
+        <ConvergenceDungeon
+          onReachBoss={() => {
+            setShowConvergence(false);
+            setShowAscended(true);
+          }}
+          onAbandon={() => {
+            setShowConvergence(false);
+            setShowSecretRoom(true);
+          }}
+        />
+      )}
+      {showAscended && (
+        <AscendedMalacharFight
+          onVictory={() => {
+            setShowAscended(false);
+            setEndgame(prev => {
+              const next = { ...prev, ascendedMalacharDefeated: true, endingChosen: 'true' as const };
+              autosave('Ascended Malachar Defeated', { endgame: next });
+              return next;
+            });
+            setShowTrueEnding(true);
+          }}
+          onDefeat={() => {
+            setShowAscended(false);
+            showNotif('Ascended Malachar overwhelmed you…');
+            setShowSecretRoom(true);
+          }}
+        />
+      )}
+      {showTrueEnding && (
+        <TrueEndingCutscene
+          onComplete={() => {
+            setShowTrueEnding(false);
+            setPhase('title');
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Quiet, broken arena visited after defeating Malachar. ───
+// Pure UI overlay — engine remains paused while the player browses.
+function EmptyArenaOverlay({
+  endgame, onApproachDoor, onLeave,
+}: { endgame: EndgameState; onApproachDoor: () => void; onLeave: () => void }) {
+  return (
+    <div className="fixed inset-0 z-40 bg-gradient-to-b from-black via-purple-950/40 to-black flex flex-col items-center justify-center">
+      {/* Broken arena flavor */}
+      <div className="absolute inset-0 overflow-hidden">
+        {Array.from({ length: 30 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-pink-500/10 blur-2xl"
+            style={{
+              width: 60 + Math.random() * 120,
+              height: 60 + Math.random() * 120,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              opacity: 0.3 + Math.random() * 0.4,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="relative z-10 text-center max-w-xl px-6">
+        <p className="text-[10px] font-ui uppercase tracking-[0.5em] text-pink-300/60 mb-2">
+          Where the Architect Fell
+        </p>
+        <h2 className="text-3xl font-display text-pink-100 mb-4">The Silent Arena</h2>
+        <p className="text-foreground/70 text-sm italic mb-6">
+          The hazards have dimmed. The pillars are cracked. At the back of the chamber,
+          a door you never noticed before now hums faintly.
+        </p>
+
+        <div className="flex flex-col gap-3 items-center">
+          <button
+            onClick={onApproachDoor}
+            className="px-8 py-3 border-2 border-yellow-500/70 text-yellow-100 bg-yellow-500/10 rounded font-display tracking-widest uppercase hover:scale-105 transition-all"
+            style={{ boxShadow: '0 0 30px rgba(250,204,21,0.3)' }}
+          >
+            Approach the Sealed Door
+          </button>
+          <button
+            onClick={onLeave}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Leave the arena
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

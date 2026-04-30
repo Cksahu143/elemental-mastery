@@ -194,6 +194,13 @@ export default function VictoryScreen({ floor, bossesDefeated, onReturnToTitle, 
               You are the Fragment Bearer who made the world whole."
             </p>
 
+            <div className="mb-6 mx-auto max-w-md p-3 rounded border border-pink-500/40 bg-pink-500/5 text-center">
+              <p className="text-[10px] font-ui uppercase tracking-[0.3em] text-pink-300 mb-1">A whisper remains…</p>
+              <p className="text-sm text-pink-100/80 italic">
+                A door remains sealed in his arena. Eight keys, eight Guardians.
+              </p>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button onClick={onVisitKingdom} variant="default" size="lg" className="font-display tracking-wider">
                 Visit Your Kingdom
