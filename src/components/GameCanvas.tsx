@@ -235,6 +235,12 @@ export default function GameCanvas() {
             autosave('Malachar Defeated', { bossesDefeated: next });
             return next;
           });
+          // Mark Malachar defeated once — unlocks empty-arena re-entry
+          setEndgame(prev => {
+            const next = { ...prev, malacharDefeatedOnce: true };
+            autosave('Malachar Defeated Once', { endgame: next });
+            return next;
+          });
           progressQuest('defeat_malachar', 'malachar');
           return;
         }
@@ -242,6 +248,14 @@ export default function GameCanvas() {
         setBossesDefeated(prev => {
           const next = prev.includes(zone) ? prev : [...prev, zone];
           autosave(`${zone.charAt(0).toUpperCase() + zone.slice(1)} Boss Defeated`, { bossesDefeated: next });
+          return next;
+        });
+        // Award key if not yet collected
+        setEndgame(prev => {
+          if (prev.keysCollected[zone]) return prev;
+          const next: EndgameState = { ...prev, keysCollected: { ...prev.keysCollected, [zone]: true } };
+          showNotif(`🗝 ${bossKeyName(zone)} obtained!`);
+          autosave(`${bossKeyName(zone)} Obtained`, { endgame: next });
           return next;
         });
         progressQuest('kill_boss', zone);
@@ -269,7 +283,7 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene || showMalacharQTE || showVictory;
+      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene || showMalacharQTE || showVictory || inEmptyArena || showSealedDoor || showKeyOrbit || showSecretRoom || showEndingSelect || !!activeTrial || showConvergence || showAscended || showTrueEnding;
       if (!isPaused) {
         update(dt);
       }
@@ -288,7 +302,7 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene, showMalacharQTE, showVictory]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene, showMalacharQTE, showVictory, inEmptyArena, showSealedDoor, showKeyOrbit, showSecretRoom, showEndingSelect, activeTrial, showConvergence, showAscended, showTrueEnding]);
 
   // Key bindings
   useEffect(() => {
