@@ -3,12 +3,15 @@ import { switchElementBattle, getActiveSkills, getCameraMode, setCameraMode, typ
 import { getFloorLabel } from '../game/dungeon';
 import QuestTracker from './QuestTracker';
 import { QuestState } from '../game/story';
+import KeyInventory from './KeyInventory';
+import { EndgameState, keyCount } from '../game/endgame';
 
 interface GameHUDProps {
   player: PlayerState;
   floor: number;
   zone: ElementType;
   questState: QuestState;
+  endgame?: EndgameState;
   onOpenLore: () => void;
   onOpenStats: () => void;
   onOpenSkills: () => void;
@@ -32,7 +35,7 @@ const ALL_OUT_NAMES: Record<ElementType, string> = {
   void: 'SINGULARITY COLLAPSE',
 };
 
-export default function GameHUD({ player, floor, zone, questState, onOpenLore, onOpenStats, onOpenSkills, onOpenMap, onPause }: GameHUDProps) {
+export default function GameHUD({ player, floor, zone, questState, endgame, onOpenLore, onOpenStats, onOpenSkills, onOpenMap, onPause }: GameHUDProps) {
   const hpPct = Math.max(0, (player.hp / player.maxHp) * 100);
   const manaPct = Math.max(0, (player.mana / player.maxMana) * 100);
   const xpPct = (player.xp / player.xpToNext) * 100;
@@ -141,6 +144,13 @@ export default function GameHUD({ player, floor, zone, questState, onOpenLore, o
       <div className="absolute top-14 right-3">
         <QuestTracker questState={questState} onOpenMap={onOpenMap} />
       </div>
+
+      {/* Key inventory — only show once player has at least one key */}
+      {endgame && keyCount(endgame) > 0 && (
+        <div className="absolute bottom-3 right-3 pointer-events-auto">
+          <KeyInventory endgame={endgame} />
+        </div>
+      )}
 
       {/* ═══ BOTTOM-LEFT: Battle element switcher ═══ */}
       {player.unlockedElements.length > 1 && (
