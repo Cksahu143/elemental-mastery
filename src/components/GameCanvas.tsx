@@ -593,6 +593,12 @@ export default function GameCanvas() {
           }}
           onContinue={handleKingdomContinue}
           standalone={!bossCutsceneZone}
+          showReturnToArena={endgame.malacharDefeatedOnce && !endgame.ascendedMalacharDefeated}
+          onReturnToArena={() => {
+            setShowKingdom(false);
+            setInEmptyArena(true);
+            showNotif('You enter the silent arena…');
+          }}
         />
       )}
       {showDeath && (
