@@ -347,6 +347,8 @@ export default function KingdomHub({
   onUpdateKingdom,
   onContinue,
   standalone = false,
+  showReturnToArena = false,
+  onReturnToArena,
 }: KingdomHubProps) {
   const [selected, setSelected] = useState<BuildingId | null>(null);
   const [upgradeAnim, setUpgradeAnim] = useState<BuildingId | null>(null);
@@ -605,17 +607,28 @@ export default function KingdomHub({
               ? 'Return to the dungeon when ready'
               : `Venture into ${ZONE_NAMES[nextZone] || 'the next zone'} when ready`}
           </p>
-          <button
-            onClick={onContinue}
-            className="px-10 py-2.5 text-sm font-display font-semibold tracking-widest uppercase border transition-all duration-300 rounded hover:scale-105 active:scale-95"
-            style={{
-              borderColor: zoneColor + '80',
-              color: zoneColor,
-              background: zoneColor + '15',
-            }}
-          >
-            {standalone ? '⚔️ Return to Battle' : `Enter ${ZONE_NAMES[nextZone] || 'Next Zone'} →`}
-          </button>
+          <div className="flex items-center gap-2">
+            {showReturnToArena && onReturnToArena && (
+              <button
+                onClick={onReturnToArena}
+                className="px-6 py-2.5 text-sm font-display font-semibold tracking-widest uppercase border border-pink-500/60 text-pink-300 bg-pink-500/10 rounded hover:scale-105 active:scale-95 transition-all"
+                style={{ boxShadow: '0 0 24px rgba(236,72,153,0.4)' }}
+              >
+                ⛓ Return to Final Arena
+              </button>
+            )}
+            <button
+              onClick={onContinue}
+              className="px-10 py-2.5 text-sm font-display font-semibold tracking-widest uppercase border transition-all duration-300 rounded hover:scale-105 active:scale-95"
+              style={{
+                borderColor: zoneColor + '80',
+                color: zoneColor,
+                background: zoneColor + '15',
+              }}
+            >
+              {standalone ? '⚔️ Return to Battle' : `Enter ${ZONE_NAMES[nextZone] || 'Next Zone'} →`}
+            </button>
+          </div>
         </div>
 
         {/* Notification */}
