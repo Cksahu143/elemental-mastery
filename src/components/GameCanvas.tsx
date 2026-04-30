@@ -147,6 +147,24 @@ export default function GameCanvas() {
     setBossesDefeated(save.bossesDefeated || []);
     setCurrentZone(save.currentZone);
     setShowDeath(false);
+    setEndgame({
+      keysCollected: save.keysCollected ?? {},
+      trueKeys: save.trueKeys ?? {},
+      malacharDefeatedOnce: save.malacharDefeatedOnce ?? false,
+      secretRoomUnlocked: save.secretRoomUnlocked ?? false,
+      ascendedMalacharDefeated: save.ascendedMalacharDefeated ?? false,
+      endingChosen: save.endingChosen,
+    });
+    // Reset transient endgame overlays
+    setInEmptyArena(false);
+    setShowSealedDoor(false);
+    setShowKeyOrbit(false);
+    setShowSecretRoom(false);
+    setShowEndingSelect(false);
+    setActiveTrial(null);
+    setShowConvergence(false);
+    setShowAscended(false);
+    setShowTrueEnding(false);
     if (isNew) {
       setQuestState(getDefaultQuestState());
       setPhase('intro');
@@ -434,6 +452,7 @@ export default function GameCanvas() {
             floor={floor}
             zone={player.element}
             questState={questState}
+            endgame={endgame}
             onOpenLore={() => setShowLore(true)}
             onOpenStats={() => setShowStats(true)}
             onOpenSkills={() => setShowSkills(true)}
