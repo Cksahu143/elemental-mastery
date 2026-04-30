@@ -389,17 +389,16 @@ export default function GameCanvas() {
     progressQuest('visit_kingdom', 'kingdom');
   }, [progressQuest]);
 
-  const handleVillainCutsceneComplete = useCallback(() => {
+ const handleVillainCutsceneComplete = useCallback(() => {
     const zone = villainCutscene!;
     setVillainCutscene(null);
-    // After void boss (Nullex) — game won! Malachar is sealed away by the eight elements.
     // After Malachar defeat villain cutscene — game won, show epic victory screen.
-    if (zone === 'void' || zone === 'malachar') {
+    if (zone === 'malachar') {
       setShowVictory(true);
       return;
     }
     proceedToKingdom(zone);
-  }, [villainCutscene, proceedToKingdom]);
+}, [villainCutscene, proceedToKingdom]);
 
   const handleKingdomContinue = useCallback(() => {
     setShowKingdom(false);
