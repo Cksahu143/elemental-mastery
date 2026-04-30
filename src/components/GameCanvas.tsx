@@ -349,9 +349,15 @@ export default function GameCanvas() {
     const data = getSaveData();
     data.loreUnlocked = loreUnlocked;
     data.bossesDefeated = bossesDefeated;
+    data.keysCollected = endgame.keysCollected;
+    data.trueKeys = endgame.trueKeys;
+    data.malacharDefeatedOnce = endgame.malacharDefeatedOnce;
+    data.secretRoomUnlocked = endgame.secretRoomUnlocked;
+    data.ascendedMalacharDefeated = endgame.ascendedMalacharDefeated;
+    data.endingChosen = endgame.endingChosen;
     saveGame(data);
     showNotif('Game Saved!');
-  }, [loreUnlocked, bossesDefeated, showNotif]);
+  }, [loreUnlocked, bossesDefeated, endgame, showNotif]);
 
   // After boss post-dialogue, show villain taunt, then kingdom
   const handleBossCutsceneComplete = useCallback(() => {
