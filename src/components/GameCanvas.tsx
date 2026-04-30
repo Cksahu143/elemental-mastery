@@ -636,6 +636,183 @@ export default function GameCanvas() {
           }}
         />
       )}
+
+      {/* ─── Endgame Layer ─── */}
+      {inEmptyArena && (
+        <EmptyArenaOverlay
+          endgame={endgame}
+          onApproachDoor={() => setShowSealedDoor(true)}
+          onLeave={() => {
+            setInEmptyArena(false);
+            setKingdomDefeatedZone('void');
+            setShowKingdom(true);
+          }}
+        />
+      )}
+      {showSealedDoor && (
+        <SealedDoor
+          endgame={endgame}
+          onUseKeys={() => {
+            if (!hasAllBossKeys(endgame)) return;
+            setShowSealedDoor(false);
+            setShowKeyOrbit(true);
+          }}
+          onLeave={() => setShowSealedDoor(false)}
+        />
+      )}
+      {showKeyOrbit && (
+        <KeyOrbitCutscene
+          onComplete={() => {
+            setShowKeyOrbit(false);
+            setEndgame(prev => {
+              const next = { ...prev, secretRoomUnlocked: true };
+              autosave('Secret Room Unlocked', { endgame: next });
+              return next;
+            });
+            setInEmptyArena(false);
+            setShowSecretRoom(true);
+          }}
+        />
+      )}
+      {showSecretRoom && (
+        <SecretRoomScene
+          endgame={endgame}
+          onInteract={() => setShowEndingSelect(true)}
+          onLeave={() => {
+            setShowSecretRoom(false);
+            setKingdomDefeatedZone('void');
+            setShowKingdom(true);
+          }}
+        />
+      )}
+      {showEndingSelect && (
+        <EndingSelectionDialog
+          endgame={endgame}
+          onChoose={(choice: EndingChoice) => {
+            setShowEndingSelect(false);
+            if (choice === 'fix') {
+              setEndgame(prev => {
+                const next = { ...prev, endingChosen: 'true' as const };
+                autosave('Convergence Initiated', { endgame: next });
+                return next;
+              });
+              setShowSecretRoom(false);
+              setShowConvergence(true);
+            } else {
+              setActiveTrial(choice as TrialId);
+            }
+          }}
+          onClose={() => setShowEndingSelect(false)}
+        />
+      )}
+      {activeTrial && (
+        <TrialScreen
+          trial={activeTrial}
+          onComplete={(success, reward) => {
+            if (success) {
+              setEndgame(prev => {
+                const next: EndgameState = { ...prev, trueKeys: { ...prev.trueKeys, [reward]: true } };
+                const trialName = TRUE_KEYS.find(k => k.id === reward)?.name ?? 'Trial';
+                autosave(`Trial Completed — ${trialName}`, { endgame: next });
+                return next;
+              });
+            }
+            setActiveTrial(null);
+          }}
+        />
+      )}
+      {showConvergence && (
+        <ConvergenceDungeon
+          onReachBoss={() => {
+            setShowConvergence(false);
+            setShowAscended(true);
+          }}
+          onAbandon={() => {
+            setShowConvergence(false);
+            setShowSecretRoom(true);
+          }}
+        />
+      )}
+      {showAscended && (
+        <AscendedMalacharFight
+          onVictory={() => {
+            setShowAscended(false);
+            setEndgame(prev => {
+              const next = { ...prev, ascendedMalacharDefeated: true, endingChosen: 'true' as const };
+              autosave('Ascended Malachar Defeated', { endgame: next });
+              return next;
+            });
+            setShowTrueEnding(true);
+          }}
+          onDefeat={() => {
+            setShowAscended(false);
+            showNotif('Ascended Malachar overwhelmed you…');
+            setShowSecretRoom(true);
+          }}
+        />
+      )}
+      {showTrueEnding && (
+        <TrueEndingCutscene
+          onComplete={() => {
+            setShowTrueEnding(false);
+            setPhase('title');
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Quiet, broken arena visited after defeating Malachar. ───
+// Pure UI overlay — engine remains paused while the player browses.
+function EmptyArenaOverlay({
+  endgame, onApproachDoor, onLeave,
+}: { endgame: EndgameState; onApproachDoor: () => void; onLeave: () => void }) {
+  return (
+    <div className="fixed inset-0 z-40 bg-gradient-to-b from-black via-purple-950/40 to-black flex flex-col items-center justify-center">
+      {/* Broken arena flavor */}
+      <div className="absolute inset-0 overflow-hidden">
+        {Array.from({ length: 30 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-pink-500/10 blur-2xl"
+            style={{
+              width: 60 + Math.random() * 120,
+              height: 60 + Math.random() * 120,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              opacity: 0.3 + Math.random() * 0.4,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="relative z-10 text-center max-w-xl px-6">
+        <p className="text-[10px] font-ui uppercase tracking-[0.5em] text-pink-300/60 mb-2">
+          Where the Architect Fell
+        </p>
+        <h2 className="text-3xl font-display text-pink-100 mb-4">The Silent Arena</h2>
+        <p className="text-foreground/70 text-sm italic mb-6">
+          The hazards have dimmed. The pillars are cracked. At the back of the chamber,
+          a door you never noticed before now hums faintly.
+        </p>
+
+        <div className="flex flex-col gap-3 items-center">
+          <button
+            onClick={onApproachDoor}
+            className="px-8 py-3 border-2 border-yellow-500/70 text-yellow-100 bg-yellow-500/10 rounded font-display tracking-widest uppercase hover:scale-105 transition-all"
+            style={{ boxShadow: '0 0 30px rgba(250,204,21,0.3)' }}
+          >
+            Approach the Sealed Door
+          </button>
+          <button
+            onClick={onLeave}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Leave the arena
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
