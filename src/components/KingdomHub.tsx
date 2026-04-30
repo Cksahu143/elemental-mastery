@@ -11,6 +11,8 @@ interface KingdomHubProps {
   onUpdateKingdom: (k: KingdomState) => void;
   onContinue: () => void;
   standalone?: boolean; // opened mid-run, no continue to next zone
+  showReturnToArena?: boolean;
+  onReturnToArena?: () => void;
 }
 
 const ZONE_COLORS: Record<ElementType, string> = {
