@@ -1741,6 +1741,90 @@ export function switchElement(element: ElementType) {
   onStateChange?.();
 }
 
+// ─── ADMIN / DEBUG HELPERS ───
+// Force-travel to a zone, bypassing the unlocked check. Adds the element if missing.
+export function adminTravelTo(element: ElementType, fl: number = 1) {
+  if (!player) return;
+  if (!player.unlockedElements.includes(element)) {
+    player.unlockedElements.push(element);
+    onElementUnlocked?.(element);
+  }
+  player.element = element;
+  if (!malacharActive) {
+    currentProgressionZone = element;
+    floor = Math.max(1, fl);
+    bossDialogueShown = false;
+    loadRoom(element, floor);
+  }
+  onStateChange?.();
+}
+
+export function adminUnlockAllElements() {
+  if (!player) return;
+  const all: ElementType[] = ['fire', 'ice', 'lightning', 'shadow', 'earth', 'wind', 'nature', 'void'];
+  for (const el of all) {
+    if (!player.unlockedElements.includes(el)) {
+      player.unlockedElements.push(el);
+      onElementUnlocked?.(el);
+    }
+  }
+  onStateChange?.();
+}
+
+export function adminFullHeal() {
+  if (!player) return;
+  player.hp = player.maxHp;
+  player.mana = player.maxMana;
+  onStateChange?.();
+}
+
+export function adminGodMode(seconds = 9999) {
+  if (!player) return;
+  player.invincible = seconds;
+  onStateChange?.();
+}
+
+export function adminAddLevels(n = 1) {
+  if (!player) return;
+  for (let i = 0; i < n; i++) {
+    player.level++;
+    player.maxHp += 15;
+    player.maxMana += 8;
+    player.hp = player.maxHp;
+    player.mana = player.maxMana;
+    player.statPoints += 3;
+    player.xp = 0;
+    player.xpToNext = Math.floor(player.xpToNext * (player.level >= 10 ? 1.05 : 1.2));
+  }
+  onLevelUp?.();
+  onStateChange?.();
+}
+
+// Instantly defeat the current room's boss (or any boss enemy present).
+// If `zone` is passed, also fires the onBossDefeated callback for that zone
+// even if the player isn't in that boss room — used by admin "defeat boss" buttons.
+export function adminDefeatBoss(zone?: ElementType) {
+  if (room) {
+    for (const e of room.enemies) {
+      if (e.isBoss) e.hp = 0;
+    }
+  }
+  if (zone) {
+    if (!player.unlockedElements.includes(zone)) {
+      player.unlockedElements.push(zone);
+      onElementUnlocked?.(zone);
+    }
+    const zoneOrder: ElementType[] = ['fire', 'ice', 'lightning', 'shadow', 'earth', 'wind', 'nature', 'void'];
+    const nextIdx = zoneOrder.indexOf(zone) + 1;
+    if (nextIdx < zoneOrder.length && !player.unlockedElements.includes(zoneOrder[nextIdx])) {
+      player.unlockedElements.push(zoneOrder[nextIdx]);
+      onElementUnlocked?.(zoneOrder[nextIdx]);
+    }
+    onBossDefeated?.(zone);
+  }
+  onStateChange?.();
+}
+
 // Switch element mid-combat without changing room or zone progression
 export function switchElementBattle(element: ElementType) {
   if (!player.unlockedElements.includes(element)) return;
