@@ -400,16 +400,19 @@ export default function GameCanvas() {
     proceedToKingdom(zone);
 }, [villainCutscene, proceedToKingdom]);
 
-  const handleKingdomContinue = useCallback(() => {
+ const handleKingdomContinue = useCallback(() => {
     setShowKingdom(false);
-    // If game is completed (Malachar defeated), go back to title
     if (isGameCompleted()) {
       showNotif('Congratulations! You saved the world!');
       setTimeout(() => setPhase('title'), 3000);
       return;
     }
+    if (kingdomDefeatedZone === 'void' && !endgame.malacharDefeatedOnce) {
+      startMalacharFight();
+      return;
+    }
     nextRoom();
-  }, [showNotif]);
+}, [showNotif, kingdomDefeatedZone, endgame]);
 
   const handleMapSelectZone = useCallback((zone: ElementType) => {
     switchElement(zone);
