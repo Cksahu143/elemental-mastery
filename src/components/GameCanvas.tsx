@@ -303,7 +303,7 @@ export default function GameCanvas() {
       const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = time;
 
-      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene || showMalacharQTE || showVictory || inEmptyArena || showSealedDoor || showKeyOrbit || showSecretRoom || showEndingSelect || !!activeTrial || showConvergence || showAscended || showTrueEnding;
+      const isPaused = showLore || showStats || showSkills || bossZone || showDeath || showTutorial || showNPCDialogue || bossCutsceneZone || zoneEntryDialogue || showKingdom || showWorldMap || villainCutscene || showMalacharQTE || showVictory || inEmptyArena || showSealedDoor || showKeyOrbit || showSecretRoom || showEndingSelect || !!activeTrial || showConvergence || showAscended || showTrueEnding || showAdmin;
       if (!isPaused) {
         update(dt);
       }
@@ -322,7 +322,7 @@ export default function GameCanvas() {
     lastTimeRef.current = 0;
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene, showMalacharQTE, showVictory, inEmptyArena, showSealedDoor, showKeyOrbit, showSecretRoom, showEndingSelect, activeTrial, showConvergence, showAscended, showTrueEnding]);
+  }, [phase, showLore, showStats, showSkills, bossZone, showDeath, showTutorial, showNPCDialogue, bossCutsceneZone, zoneEntryDialogue, showKingdom, showWorldMap, villainCutscene, showMalacharQTE, showVictory, inEmptyArena, showSealedDoor, showKeyOrbit, showSecretRoom, showEndingSelect, activeTrial, showConvergence, showAscended, showTrueEnding, showAdmin]);
 
   // Key bindings
   useEffect(() => {
