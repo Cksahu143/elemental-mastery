@@ -37,6 +37,7 @@ import ConvergenceDungeon from './ConvergenceDungeon';
 import AscendedMalacharFight from './AscendedMalacharFight';
 import TrueEndingCutscene from './TrueEndingCutscene';
 import { EndgameState, makeDefaultEndgame, hasAllBossKeys, bossKeyName, TRUE_KEYS } from '../game/endgame';
+import AdminPanel from './AdminPanel';
 
 type GamePhase = 'title' | 'intro' | 'playing' | 'paused';
 type FinalBossSceneZone = ElementType | 'malachar';
@@ -96,6 +97,7 @@ export default function GameCanvas() {
   const [showConvergence, setShowConvergence] = useState(false);
   const [showAscended, setShowAscended] = useState(false);
   const [showTrueEnding, setShowTrueEnding] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   const hasSave = loadGame() !== null;
 
@@ -339,6 +341,11 @@ export default function GameCanvas() {
       // Q key for All-Out Attack
       if (e.key.toLowerCase() === 'q' && phase === 'playing' && !showLore && !showSkills && !showStats && !bossZone && !showDeath && !showTutorial && !showNPCDialogue && !bossCutsceneZone && !villainCutscene && !showWorldMap) {
         fireAllOutAttack();
+      }
+      // Admin panel toggle: backtick (`) — only while playing
+      if ((e.key === '`' || e.key === '~') && phase === 'playing') {
+        setShowAdmin(prev => !prev);
+        e.preventDefault();
       }
     };
     window.addEventListener('keydown', handler);
