@@ -774,6 +774,69 @@ export default function GameCanvas() {
           }}
         />
       )}
+
+      {/* ─── Admin / Debug Console (toggle with `) ─── */}
+      {showAdmin && (
+        <AdminPanel
+          endgame={endgame}
+          onUpdateEndgame={(next) => {
+            setEndgame(next);
+            autosave('Admin update', { endgame: next });
+          }}
+          onClose={() => setShowAdmin(false)}
+          onNotify={showNotif}
+          jumps={{
+            toEmptyArena: () => {
+              setEndgame(prev => prev.malacharDefeatedOnce ? prev : { ...prev, malacharDefeatedOnce: true });
+              setShowSealedDoor(false); setShowKeyOrbit(false); setShowSecretRoom(false);
+              setShowEndingSelect(false); setActiveTrial(null);
+              setShowConvergence(false); setShowAscended(false); setShowTrueEnding(false);
+              setInEmptyArena(true);
+            },
+            toSealedDoor: () => {
+              setInEmptyArena(false); setShowKeyOrbit(false); setShowSecretRoom(false);
+              setShowEndingSelect(false); setActiveTrial(null);
+              setShowConvergence(false); setShowAscended(false); setShowTrueEnding(false);
+              setShowSealedDoor(true);
+            },
+            toSecretRoom: () => {
+              setEndgame(prev => prev.secretRoomUnlocked ? prev : { ...prev, secretRoomUnlocked: true, malacharDefeatedOnce: true });
+              setInEmptyArena(false); setShowSealedDoor(false); setShowKeyOrbit(false);
+              setShowEndingSelect(false); setActiveTrial(null);
+              setShowConvergence(false); setShowAscended(false); setShowTrueEnding(false);
+              setShowSecretRoom(true);
+            },
+            toEndingSelect: () => {
+              setShowSecretRoom(true);
+              setShowEndingSelect(true);
+            },
+            toConvergence: () => {
+              setInEmptyArena(false); setShowSealedDoor(false); setShowKeyOrbit(false);
+              setShowSecretRoom(false); setShowEndingSelect(false); setActiveTrial(null);
+              setShowAscended(false); setShowTrueEnding(false);
+              setShowConvergence(true);
+            },
+            toAscendedMalachar: () => {
+              setInEmptyArena(false); setShowSealedDoor(false); setShowKeyOrbit(false);
+              setShowSecretRoom(false); setShowEndingSelect(false); setActiveTrial(null);
+              setShowConvergence(false); setShowTrueEnding(false);
+              setShowAscended(true);
+            },
+            toTrueEnding: () => {
+              setInEmptyArena(false); setShowSealedDoor(false); setShowKeyOrbit(false);
+              setShowSecretRoom(false); setShowEndingSelect(false); setActiveTrial(null);
+              setShowConvergence(false); setShowAscended(false);
+              setShowTrueEnding(true);
+            },
+            startMalacharFight: () => {
+              setInEmptyArena(false); setShowSealedDoor(false); setShowKeyOrbit(false);
+              setShowSecretRoom(false); setShowEndingSelect(false); setActiveTrial(null);
+              setShowConvergence(false); setShowAscended(false); setShowTrueEnding(false);
+              startMalacharFight();
+            },
+          }}
+        />
+      )}
     </div>
   );
 }
